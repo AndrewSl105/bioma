@@ -1,0 +1,75 @@
+const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+
+let tokenGetter: () => Promise<string | null> = async () => null;
+export function registerTokenGetter(fn: () => Promise<string | null>) {
+  tokenGetter = fn;
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const token = await tokenGetter();
+  const res = await fetch(`${BASE}/api${path}`, {
+    ...init,
+    headers: {
+      ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...init.headers,
+    },
+  });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => res.statusText);
+    throw new Error(msg || `HTTP ${res.status}`);
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
+
+export const api = {
+  overview: () => request<OverviewCard[]>('/overview'),
+  biomarkers: () => request<Biomarker[]>('/biomarkers'),
+  history: (slug: string) => request<History>(`/results?biomarker=${encodeURIComponent(slug)}`),
+  addResult: (body: AddResultBody) =>
+    request('/results', { method: 'POST', body: JSON.stringify(body) }),
+  deleteResult: (id: string) => request(`/results/${id}`, { method: 'DELETE' }),
+  aiExtract: (file: File) => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return request<AiExtractResult>('/ai/extract', { method: 'POST', body: fd });
+  },
+  aiCommit: (body: AiCommitBody) =>
+    request<{ panelId: string; created: number }>('/ai/commit', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+};
+
+// ── типи ──
+export type Flag = 'LOW' | 'NORMAL' | 'HIGH' | 'UNKNOWN';
+export interface OverviewCard {
+  biomarker: { slug: string; name: string; shortName: string | null; category: string | null; unit: string; precision: number };
+  latest: { value: number; unit: string; measuredAt: string; flag: Flag };
+  reference: { low: number | null; high: number | null } | null;
+  count: number;
+}
+export interface Biomarker {
+  id: string; slug: string; name: string; shortName: string | null; unit: string; category: string | null;
+}
+export interface HistoryPoint {
+  id: string; value: number; unit: string; measuredAt: string; flag: Flag; source: string; note: string | null;
+}
+export interface History {
+  biomarker: { slug: string; name: string; shortName: string | null; unit: string; category: string | null; precision: number };
+  reference: { low: number | null; high: number | null; optimalLow: number | null; optimalHigh: number | null; unit: string; source: string | null } | null;
+  latest: HistoryPoint | null;
+  trend: number | null;
+  series: HistoryPoint[];
+}
+export interface AddResultBody { biomarkerSlug: string; value: number; unit?: string; measuredAt: string; note?: string; }
+export interface AiExtractResult {
+  documentId: string; labName: string | null; takenAt: string | null;
+  items: { extracted: { name: string; value: number; unit: string; referenceLow: number | null; referenceHigh: number | null; rawText: string };
+    matchedBiomarker: { slug: string; name: string; unit: string } | null; }[];
+}
+export interface AiCommitBody {
+  documentId?: string; labName?: string; takenAt: string;
+  items: { biomarkerSlug: string; value: number; unit: string; rawText?: string }[];
+}
