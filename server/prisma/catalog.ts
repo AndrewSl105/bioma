@@ -1,4 +1,4 @@
-import { Sex } from '../src/generated/prisma/client';
+import { Sex } from '../src/generated/prisma/enums';
 
 /**
  * Єдиний каталог біомаркерів PROM.

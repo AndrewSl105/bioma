@@ -152,6 +152,7 @@ async function seedPatient() {
 
   let panelsCreated = 0;
   let resultsCreated = 0;
+  let panelsSkipped = 0;
 
   for (const panel of PATIENT_PANELS) {
     const takenAt = new Date(panel.takenAt);
@@ -159,7 +160,10 @@ async function seedPatient() {
     const existing = await prisma.labPanel.findFirst({
       where: { userId, name: panel.orderNo },
     });
-    if (existing) continue;
+    if (existing) {
+      panelsSkipped++;
+      continue;
+    }
 
     const age = ageAt(PATIENT_PROFILE.birthDate, takenAt);
 
@@ -192,7 +196,7 @@ async function seedPatient() {
     panelsCreated++;
     resultsCreated += created.results.length;
   }
-  return { userId, panelsCreated, resultsCreated };
+  return { userId, panelsCreated, resultsCreated, panelsSkipped };
 }
 
 async function main() {
@@ -210,9 +214,12 @@ async function main() {
   // Демо-дані пацієнта: тільки в реальний акаунт Neon Auth (SEED_USER_ID).
   // Користувача створює сам сід (upsert), заходити в застосунок заздалегідь не треба.
   const p = await seedPatient();
+  const skipped = p.panelsSkipped
+      ? ` (${p.panelsSkipped} панелей уже існували — пропущено, дублів немає)`
+      : '';
   console.log(
       `Пацієнт ${p.userId}: +${p.panelsCreated} панелей, ` +
-      `+${p.resultsCreated} результатів на ${PATIENT_PANELS.length} дати.`,
+      `+${p.resultsCreated} результатів на ${PATIENT_PANELS.length} дати${skipped}.`,
   );
 }
 
