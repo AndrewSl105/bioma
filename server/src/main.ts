@@ -22,6 +22,6 @@ async function bootstrap() {
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port);
   // eslint-disable-next-line no-console
-  console.log(`PROM API → http://localhost:${port}/api`);
+  console.log(`Bioma API → http://localhost:${port}/api`);
 }
 bootstrap();

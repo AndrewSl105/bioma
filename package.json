@@ -2,7 +2,7 @@
   "name": "bioma",
   "version": "0.1.0",
   "private": true,
-  "description": "PROM — трекер аналізів з AI-розпізнаванням фото. Монорепо: client (React) + server (NestJS).",
+  "description": "Bioma — трекер аналізів з AI-розпізнаванням фото. Монорепо: client (React) + server (NestJS).",
   "packageManager": "pnpm@9.12.0",
   "scripts": {
     "dev": "pnpm -r --parallel dev",

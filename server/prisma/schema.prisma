@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────
-//  PROM — Prisma schema (Neon Postgres)
+//  Bioma — Prisma schema (Neon Postgres)
 // ─────────────────────────────────────────────────────────────
 generator client {
   provider     = "prisma-client"

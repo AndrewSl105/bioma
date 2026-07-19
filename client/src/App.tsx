@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
-import { Activity } from 'lucide-react';
 import { useAuth } from './lib/auth';
 import { registerTokenGetter } from './lib/api';
 import { DashboardPage } from './pages/DashboardPage';
@@ -18,10 +17,9 @@ export default function App() {
       <header className="sticky top-0 z-30 border-b border-line bg-paper/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3.5">
           <div className="flex shrink-0 items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white">
-              <Activity size={18} />
-            </span>
-            <span className="font-display text-lg font-bold tracking-tight">PROM</span>
+            {/* alt="" — назву поруч уже озвучує текст, щоб не дублювати */}
+            <img src="/logo.svg" alt="" className="h-8 w-8 shrink-0" />
+            <span className="font-display text-lg font-bold tracking-tight">Bioma</span>
           </div>
           {user && (
             <span className="min-w-0 max-w-[55%] truncate text-sm text-muted">
