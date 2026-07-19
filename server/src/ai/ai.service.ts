@@ -1,6 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { ResultSource } from '@prisma/client';
+import { ResultSource } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UploadedFileLike } from '../common/uploaded-file';
 import { computeFlag, pickRange } from '../biomarkers/reference.util';

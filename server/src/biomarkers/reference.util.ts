@@ -1,4 +1,4 @@
-import { ResultFlag, Sex } from '@prisma/client';
+import { ResultFlag, Sex } from '../generated/prisma/client';
 
 interface RangeLike {
   low: number | null;

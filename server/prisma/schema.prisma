@@ -2,12 +2,13 @@
 //  PROM — Prisma schema (Neon Postgres)
 // ─────────────────────────────────────────────────────────────
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Sex {
@@ -17,8 +18,8 @@ enum Sex {
 }
 
 enum ResultSource {
-  MANUAL      // введено вручну
-  AI_PHOTO    // розпізнано з фото документа
+  MANUAL // введено вручну
+  AI_PHOTO // розпізнано з фото документа
   IMPORT
 }
 
@@ -39,36 +40,36 @@ enum ResultFlag {
 /// Дзеркало користувача з Neon Auth (Stack Auth).
 /// id === Stack user id (sub з JWT). Створюється при першому запиті.
 model User {
-  id        String   @id
+  id        String    @id
   email     String?
   name      String?
   sex       Sex?
   birthDate DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   results       LabResult[]
   panels        LabPanel[]
   documents     Document[]
-  biomarkers    Biomarker[]   // користувацькі (custom) біомаркери
+  biomarkers    Biomarker[] // користувацькі (custom) біомаркери
   promResponses PromResponse[]
 }
 
 /// Тип аналізу / показник (напр. "Вітамін D (25-OH)", "Загальний холестерин").
 /// ownerId = null → глобальний каталог; інакше — власний біомаркер користувача.
 model Biomarker {
-  id          String   @id @default(cuid())
-  ownerId     String?
-  owner       User?    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  id      String  @id @default(cuid())
+  ownerId String?
+  owner   User?   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
-  slug        String   // напр. "vitamin-d", унікальний у межах власника
-  name        String   // "Вітамін D (25-OH)"
-  shortName   String?  // "Вітамін D"
-  unit        String   // "нг/мл", "ммоль/л", "МО/мл"
-  category    String?  // "Вітаміни", "Ліпідограма", "Гормони"
-  loincCode   String?  // код LOINC (для мапінгу з AI), опційно
+  slug        String // напр. "vitamin-d", унікальний у межах власника
+  name        String // "Вітамін D (25-OH)"
+  shortName   String? // "Вітамін D"
+  unit        String // "нг/мл", "ммоль/л", "МО/мл"
+  category    String? // "Вітаміни", "Ліпідограма", "Гормони"
+  loincCode   String? // код LOINC (для мапінгу з AI), опційно
   description String?
-  precision   Int      @default(2) // к-сть знаків після коми
+  precision   Int     @default(2) // к-сть знаків після коми
 
   referenceRanges ReferenceRange[]
   results         LabResult[]
@@ -83,19 +84,19 @@ model Biomarker {
 /// Референсні межі. Можуть залежати від статі/віку.
 /// optimal* — «оптимальний» діапазон (вужчий за лабораторну норму), опційно.
 model ReferenceRange {
-  id          String  @id @default(cuid())
+  id          String    @id @default(cuid())
   biomarkerId String
   biomarker   Biomarker @relation(fields: [biomarkerId], references: [id], onDelete: Cascade)
 
-  low        Float?
-  high       Float?
-  optimalLow Float?
+  low         Float?
+  high        Float?
+  optimalLow  Float?
   optimalHigh Float?
-  unit       String
-  sex        Sex     @default(ANY)
+  unit        String
+  sex         Sex     @default(ANY)
   ageMinYears Int?
   ageMaxYears Int?
-  source     String? // "Виробник тесту", "Endocrine Society" тощо
+  source      String? // "Виробник тесту", "Endocrine Society" тощо
 
   createdAt DateTime @default(now())
 
@@ -105,40 +106,40 @@ model ReferenceRange {
 /// Панель/комплекс — група результатів з одного документа/дати
 /// (напр. "Комплекс №112 Ліпідограма").
 model LabPanel {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name        String?
-  labName     String?  // назва лабораторії
-  takenAt     DateTime // дата забору/дослідження
-  documentId  String?
-  document    Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String?
+  labName    String? // назва лабораторії
+  takenAt    DateTime // дата забору/дослідження
+  documentId String?
+  document   Document? @relation(fields: [documentId], references: [id], onDelete: SetNull)
 
   results   LabResult[]
-  createdAt DateTime @default(now())
+  createdAt DateTime    @default(now())
 
   @@index([userId, takenAt])
 }
 
 /// Одне виміряне значення.
 model LabResult {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   biomarkerId String
   biomarker   Biomarker @relation(fields: [biomarkerId], references: [id], onDelete: Restrict)
 
-  value       Float
-  unit        String
-  measuredAt  DateTime          // дата аналізу (не дата вводу)
-  flag        ResultFlag  @default(UNKNOWN)
-  source      ResultSource @default(MANUAL)
-  note        String?
-  rawText     String?           // сирий текст рядка з документа (для AI)
-  confidence  Float?            // впевненість AI [0..1], лише для AI_PHOTO
+  value      Float
+  unit       String
+  measuredAt DateTime // дата аналізу (не дата вводу)
+  flag       ResultFlag   @default(UNKNOWN)
+  source     ResultSource @default(MANUAL)
+  note       String?
+  rawText    String? // сирий текст рядка з документа (для AI)
+  confidence Float? // впевненість AI [0..1], лише для AI_PHOTO
 
-  panelId     String?
-  panel       LabPanel? @relation(fields: [panelId], references: [id], onDelete: SetNull)
+  panelId String?
+  panel   LabPanel? @relation(fields: [panelId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -148,19 +149,19 @@ model LabResult {
 
 /// Завантажене фото/скан документа аналізів.
 model Document {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  storageKey  String   // ключ/URL у сховищі (S3 / Neon blob / локально)
-  mimeType    String
-  fileName    String?
-  status      DocumentStatus @default(PENDING)
-  aiRaw       Json?    // повна відповідь AI-екстракції
-  error       String?
+  id         String         @id @default(cuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storageKey String // ключ/URL у сховищі (S3 / Neon blob / локально)
+  mimeType   String
+  fileName   String?
+  status     DocumentStatus @default(PENDING)
+  aiRaw      Json? // повна відповідь AI-екстракції
+  error      String?
 
   panels    LabPanel[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 
   @@index([userId, status])
 }
@@ -176,20 +177,20 @@ model PromInstrument {
   schema      Json
 
   responses PromResponse[]
-  createdAt DateTime @default(now())
+  createdAt DateTime       @default(now())
 }
 
 /// Проходження опитувальника користувачем.
 model PromResponse {
-  id           String @id @default(cuid())
+  id           String         @id @default(cuid())
   userId       String
-  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   instrumentId String
   instrument   PromInstrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
 
-  answers   Json     // { questionId: value }
-  score     Float?   // обчислений сумарний бал
-  takenAt   DateTime @default(now())
+  answers Json // { questionId: value }
+  score   Float? // обчислений сумарний бал
+  takenAt DateTime @default(now())
 
   @@index([userId, instrumentId, takenAt])
 }

@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { ResultSource, Sex } from '@prisma/client';
+import { ResultSource, Sex } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeFlag, pickRange } from '../biomarkers/reference.util';
 import { CreateResultDto } from './dto/create-result.dto';

@@ -10,3 +10,4 @@ server/dist/
 server/prisma/*.db
 coverage/
 uploads/
+server/src/generated/
