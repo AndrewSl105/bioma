@@ -1,3 +1,5 @@
+import { clearTokenCache } from './auth';
+
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
 let tokenGetter: () => Promise<string | null> = async () => null;
@@ -5,9 +7,9 @@ export function registerTokenGetter(fn: () => Promise<string | null>) {
   tokenGetter = fn;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function send(path: string, init: RequestInit): Promise<Response> {
   const token = await tokenGetter();
-  const res = await fetch(`${BASE}/api${path}`, {
+  return fetch(`${BASE}/api${path}`, {
     ...init,
     headers: {
       ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
@@ -15,6 +17,18 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       ...init.headers,
     },
   });
+}
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  let res = await send(path, init);
+
+  // Токен міг протермінуватись між кешуванням і запитом — скидаємо кеш
+  // і пробуємо ще раз рівно один раз, щоб не зациклитись.
+  if (res.status === 401) {
+    clearTokenCache();
+    res = await send(path, init);
+  }
+
   if (!res.ok) {
     const msg = await res.text().catch(() => res.statusText);
     throw new Error(msg || `HTTP ${res.status}`);

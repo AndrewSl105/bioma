@@ -20,6 +20,9 @@ const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5.6-terra';
 
 const EXTRACTION_USER_TEXT = 'Витягни всі показники з цього лабораторного бланка.';
 
+/** Локаль інтерфейсу — якою назвою показника відповідати клієнту. */
+const UI_LOCALE = 'uk';
+
 @Injectable()
 export class AiService {
   // Клієнти створюються ліниво: ключ потрібен лише для активного провайдера.
@@ -162,33 +165,47 @@ export class AiService {
 
   /** Зіставляє витягнуті рядки з біомаркерами каталогу (LOINC → назва). */
   private async matchToBiomarkers(userId: string, extraction: ExtractionResult) {
-    type CatalogItem = {
-      slug: string;
-      name: string;
-      shortName: string | null;
-      unit: string;
-      loincCode: string | null;
-    };
-    const catalog: CatalogItem[] = await this.prisma.biomarker.findMany({
+    const catalog = await this.prisma.biomarker.findMany({
       where: { OR: [{ ownerId: null }, { ownerId: userId }] },
+      include: { translations: true },
     });
-    const byLoinc = new Map(catalog.filter((b) => b.loincCode).map((b) => [b.loincCode!, b]));
-    const byName = new Map(catalog.map((b) => [norm(b.name), b]));
-    const byShort = new Map(
-      catalog.filter((b) => b.shortName).map((b) => [norm(b.shortName!), b]),
-    );
+    type CatalogItem = (typeof catalog)[number];
+
+    // Бланки українські, а canonicalName — англійський канон, тому зіставляємо
+    // і по канону, і по всіх локалізованих назвах.
+    const byLoinc = new Map<string, CatalogItem>();
+    const byName = new Map<string, CatalogItem>();
+    const byShort = new Map<string, CatalogItem>();
+
+    for (const b of catalog) {
+      if (b.loincCode) byLoinc.set(b.loincCode, b);
+
+      const names = [b.canonicalName, ...b.translations.map((t) => t.name)];
+      const shorts = [b.canonicalShort, ...b.translations.map((t) => t.shortName)];
+
+      // norm() може дати порожній рядок — такий ключ зловив би будь-що
+      // у fallback через includes(), тож відкидаємо його.
+      for (const n of names) if (n && norm(n)) byName.set(norm(n), b);
+      for (const s of shorts) if (s && norm(s)) byShort.set(norm(s), b);
+    }
+
+    /** Назва для UI: локаль інтерфейсу, інакше канон. */
+    const display = (b: CatalogItem) =>
+      b.translations.find((t) => t.locale === UI_LOCALE)?.name ?? b.canonicalName;
 
     return extraction.items.map((item) => {
+      const needle = norm(item.name);
       const match =
         (item.loinc && byLoinc.get(item.loinc)) ||
-        byName.get(norm(item.name)) ||
-        byShort.get(norm(item.name)) ||
-        [...byName.values()].find((b) => norm(item.name).includes(norm(b.shortName ?? b.name)));
+        byName.get(needle) ||
+        byShort.get(needle) ||
+        [...byShort.entries()].find(([short]) => needle.includes(short))?.[1] ||
+        [...byName.entries()].find(([name]) => needle.includes(name))?.[1];
 
       return {
         extracted: item,
         matchedBiomarker: match
-          ? { slug: match.slug, name: match.name, unit: match.unit }
+          ? { slug: match.slug, name: display(match), unit: match.unit }
           : null,
       };
     });

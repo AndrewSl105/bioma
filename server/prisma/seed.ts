@@ -1,131 +1,11 @@
-import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Sex } from '../src/generated/prisma/client';
+import { PrismaClient, Sex, ResultFlag, ResultSource } from '../src/generated/prisma/client';
+import { CATALOG, CatalogRange } from './catalog';
+import { PATIENT_PANELS, PATIENT_PROFILE } from './patient-data';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
-
-type Seed = {
-  slug: string;
-  name: string;
-  shortName: string;
-  unit: string;
-  category: string;
-  loincCode?: string;
-  precision?: number;
-  ranges: {
-    low?: number;
-    high?: number;
-    optimalLow?: number;
-    optimalHigh?: number;
-    sex?: Sex;
-    source?: string;
-  }[];
-};
-
-// Демонстраційний каталог. Референси спрощені — звіряйте з бланком лабораторії.
-const CATALOG: Seed[] = [
-  {
-    slug: 'vitamin-d',
-    name: 'Вітамін D (25-OH)',
-    shortName: 'Вітамін D',
-    unit: 'нг/мл',
-    category: 'Вітаміни',
-    loincCode: '35059-2',
-    ranges: [{ low: 30, high: 100, optimalLow: 40, optimalHigh: 60, source: 'Endocrine Society' }],
-  },
-  {
-    slug: 'total-cholesterol',
-    name: 'Загальний холестерин',
-    shortName: 'Холестерин',
-    unit: 'ммоль/л',
-    category: 'Ліпідограма',
-    loincCode: '2093-3',
-    ranges: [{ high: 5.2, source: 'NCEP ATP III' }],
-  },
-  {
-    slug: 'ldl',
-    name: 'Холестерин ЛПНЩ (LDL)',
-    shortName: 'ЛПНЩ',
-    unit: 'ммоль/л',
-    category: 'Ліпідограма',
-    loincCode: '13457-7',
-    ranges: [{ high: 3.0 }],
-  },
-  {
-    slug: 'hdl',
-    name: 'Холестерин ЛПВЩ (HDL)',
-    shortName: 'ЛПВЩ',
-    unit: 'ммоль/л',
-    category: 'Ліпідограма',
-    loincCode: '2085-9',
-    ranges: [
-      { low: 1.0, sex: Sex.MALE },
-      { low: 1.2, sex: Sex.FEMALE },
-    ],
-  },
-  {
-    slug: 'triglycerides',
-    name: 'Тригліцериди',
-    shortName: 'Тригліцериди',
-    unit: 'ммоль/л',
-    category: 'Ліпідограма',
-    loincCode: '2571-8',
-    ranges: [{ high: 1.7 }],
-  },
-  {
-    slug: 'glucose',
-    name: 'Глюкоза (натще)',
-    shortName: 'Глюкоза',
-    unit: 'ммоль/л',
-    category: 'Біохімія',
-    loincCode: '1558-6',
-    ranges: [{ low: 3.9, high: 5.6 }],
-  },
-  {
-    slug: 'hba1c',
-    name: 'Глікований гемоглобін (HbA1c)',
-    shortName: 'HbA1c',
-    unit: '%',
-    category: 'Біохімія',
-    loincCode: '4548-4',
-    ranges: [{ high: 5.7 }],
-  },
-  {
-    slug: 'tsh',
-    name: 'Тиреотропний гормон (ТТГ)',
-    shortName: 'ТТГ',
-    unit: 'мкМО/мл',
-    category: 'Гормони',
-    loincCode: '3016-3',
-    ranges: [{ low: 0.4, high: 4.0 }],
-  },
-  {
-    slug: 'ferritin',
-    name: 'Феритин',
-    shortName: 'Феритин',
-    unit: 'нг/мл',
-    category: 'Гематологія',
-    loincCode: '2276-4',
-    ranges: [
-      { low: 30, high: 400, sex: Sex.MALE },
-      { low: 15, high: 150, sex: Sex.FEMALE },
-    ],
-  },
-  {
-    slug: 'hemoglobin',
-    name: 'Гемоглобін',
-    shortName: 'Гемоглобін',
-    unit: 'г/л',
-    category: 'Гематологія',
-    loincCode: '718-7',
-    ranges: [
-      { low: 130, high: 170, sex: Sex.MALE },
-      { low: 120, high: 150, sex: Sex.FEMALE },
-    ],
-  },
-];
 
 const PHQ9 = {
   slug: 'phq-9',
@@ -149,50 +29,196 @@ const PHQ9 = {
   },
 };
 
-async function main() {
+// ── вибір діапазону за статтю/віком + прапорець ──────────────
+function ageAt(birthDate: string, at: Date): number {
+  const b = new Date(birthDate);
+  let age = at.getFullYear() - b.getFullYear();
+  const m = at.getMonth() - b.getMonth();
+  if (m < 0 || (m === 0 && at.getDate() < b.getDate())) age--;
+  return age;
+}
+
+function pickRange(ranges: CatalogRange[], sex: Sex, age: number): CatalogRange | undefined {
+  const scored = ranges
+      .map((r) => {
+        let score = 0;
+        if (r.sex && r.sex !== Sex.ANY) {
+          if (r.sex === sex) score += 2;
+          else return null;
+        } else score += 1;
+        if (r.ageMinYears != null && age < r.ageMinYears) return null;
+        if (r.ageMaxYears != null && age > r.ageMaxYears) return null;
+        if (r.ageMinYears != null || r.ageMaxYears != null) score += 1;
+        return { r, score };
+      })
+      .filter((x): x is { r: CatalogRange; score: number } => x !== null)
+      .sort((a, b) => b.score - a.score);
+  return scored[0]?.r;
+}
+
+function computeFlag(value: number, range?: CatalogRange): ResultFlag {
+  if (!range || (range.low == null && range.high == null)) return ResultFlag.UNKNOWN;
+  if (range.low != null && value < range.low) return ResultFlag.LOW;
+  if (range.high != null && value > range.high) return ResultFlag.HIGH;
+  return ResultFlag.NORMAL;
+}
+
+async function seedCatalog() {
+  let created = 0;
+  let translations = 0;
   for (const b of CATALOG) {
-    const existing = await prisma.biomarker.findFirst({
-      where: { ownerId: null, slug: b.slug },
+    let biomarker = await prisma.biomarker.findFirst({ where: { ownerId: null, slug: b.slug } });
+    if (!biomarker) {
+      biomarker = await prisma.biomarker.create({
+        data: {
+          ownerId: null,
+          slug: b.slug,
+          loincCode: b.loincCode,
+          canonicalName: b.canonicalName,
+          canonicalShort: b.canonicalShort,
+          category: b.category,
+          unit: b.unit,
+          precision: b.precision ?? 2,
+          bands: b.bands ?? undefined,
+          referenceRanges: {
+            create: b.ranges
+                .filter((r) => r.low != null || r.high != null || r.optimalLow != null || r.optimalHigh != null)
+                .map((r) => ({
+                  low: r.low ?? null,
+                  high: r.high ?? null,
+                  optimalLow: r.optimalLow ?? null,
+                  optimalHigh: r.optimalHigh ?? null,
+                  unit: b.unit,
+                  sex: r.sex ?? Sex.ANY,
+                  ageMinYears: r.ageMinYears ?? null,
+                  ageMaxYears: r.ageMaxYears ?? null,
+                  source: r.source,
+                })),
+          },
+        },
+      });
+      created++;
+    } else {
+      // оновлюємо канонічні поля + bands на випадок змін каталогу
+      await prisma.biomarker.update({
+        where: { id: biomarker.id },
+        data: {
+          loincCode: b.loincCode,
+          canonicalName: b.canonicalName,
+          canonicalShort: b.canonicalShort,
+          category: b.category,
+          unit: b.unit,
+          precision: b.precision ?? 2,
+          bands: b.bands ?? undefined,
+        },
+      });
+    }
+
+    for (const [locale, t] of Object.entries(b.i18n)) {
+      await prisma.biomarkerTranslation.upsert({
+        where: { biomarkerId_locale: { biomarkerId: biomarker.id, locale } },
+        update: { name: t.name, shortName: t.shortName, category: t.category },
+        create: { biomarkerId: biomarker.id, locale, name: t.name, shortName: t.shortName, category: t.category },
+      });
+      translations++;
+    }
+  }
+  return { created, translations };
+}
+
+async function seedPatient(userId: string) {
+  // Профіль пацієнта (чол., 1998) — щоб працювали референси за статтю/віком.
+  // Користувача створює Neon Auth, тут лише доповнюємо стать і дату народження.
+  await prisma.user.update({
+    where: { id: userId },
+    data: { sex: PATIENT_PROFILE.sex, birthDate: new Date(PATIENT_PROFILE.birthDate) },
+  });
+
+  const catalogBySlug = new Map(CATALOG.map((c) => [c.slug, c]));
+  const dbBiomarkers = await prisma.biomarker.findMany({ where: { ownerId: null } });
+  const idBySlug = new Map(dbBiomarkers.map((b) => [b.slug, b.id]));
+
+  let panelsCreated = 0;
+  let resultsCreated = 0;
+
+  for (const panel of PATIENT_PANELS) {
+    const takenAt = new Date(panel.takenAt);
+    // ідемпотентність: пропускаємо, якщо панель з таким orderNo вже є
+    const existing = await prisma.labPanel.findFirst({
+      where: { userId, name: panel.orderNo },
     });
     if (existing) continue;
 
-    await prisma.biomarker.create({
+    const age = ageAt(PATIENT_PROFILE.birthDate, takenAt);
+
+    const created = await prisma.labPanel.create({
       data: {
-        ownerId: null,
-        slug: b.slug,
-        name: b.name,
-        shortName: b.shortName,
-        unit: b.unit,
-        category: b.category,
-        loincCode: b.loincCode,
-        precision: b.precision ?? 2,
-        referenceRanges: {
-          create: b.ranges.map((r) => ({
-            low: r.low ?? null,
-            high: r.high ?? null,
-            optimalLow: r.optimalLow ?? null,
-            optimalHigh: r.optimalHigh ?? null,
-            unit: b.unit,
-            sex: r.sex ?? Sex.ANY,
-            source: r.source,
-          })),
+        userId,
+        name: panel.orderNo,
+        labName: panel.labName,
+        takenAt,
+        results: {
+          create: Object.entries(panel.results)
+              .filter(([slug]) => idBySlug.has(slug))
+              .map(([slug, value]) => {
+                const cat = catalogBySlug.get(slug)!;
+                const range = pickRange(cat.ranges, PATIENT_PROFILE.sex, age);
+                return {
+                  userId,
+                  biomarkerId: idBySlug.get(slug)!,
+                  value,
+                  unit: cat.unit,
+                  measuredAt: takenAt,
+                  flag: computeFlag(value, range),
+                  source: ResultSource.IMPORT,
+                };
+              }),
         },
       },
+      include: { results: true },
     });
+    panelsCreated++;
+    resultsCreated += created.results.length;
   }
+  return { panelsCreated, resultsCreated };
+}
 
+async function main() {
+  const c = await seedCatalog();
   await prisma.promInstrument.upsert({
     where: { slug: PHQ9.slug },
     update: {},
     create: { slug: PHQ9.slug, title: PHQ9.title, description: PHQ9.description, schema: PHQ9.schema },
   });
+  console.log(
+      `Каталог: +${c.created} біомаркерів (усього ${CATALOG.length}), ${c.translations} перекладів.\n` +
+      `+1 PROM-опитувальник (PHQ-9).`,
+  );
 
-  console.log(`Сід готово: ${CATALOG.length} біомаркерів + 1 PROM-опитувальник`);
+  // Демо-дані пацієнта прив'язуються до реального користувача Neon Auth.
+  // Зареєструйтесь у застосунку, візьміть свій id і передайте як SEED_USER_ID.
+  const seedUserId = process.env.SEED_USER_ID;
+  if (!seedUserId) {
+    console.log('SEED_USER_ID не задано — демо-дані пацієнта пропущено.');
+    return;
+  }
+
+  const exists = await prisma.user.findUnique({ where: { id: seedUserId } });
+  if (!exists) {
+    console.log(`Користувача ${seedUserId} немає в БД — демо-дані пацієнта пропущено.`);
+    return;
+  }
+
+  const p = await seedPatient(seedUserId);
+  console.log(
+      `Пацієнт ${seedUserId}: +${p.panelsCreated} панелей, ` +
+      `+${p.resultsCreated} результатів на ${PATIENT_PANELS.length} дати.`,
+  );
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(() => prisma.$disconnect());
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    })
+    .finally(() => prisma.$disconnect());

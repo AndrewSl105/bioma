@@ -7,7 +7,7 @@
 prom/
 ├─ client/   React + TypeScript + Tailwind + Radix + Framer Motion + Recharts
 ├─ server/   NestJS + Prisma
-└─ (БД)      Neon Postgres · Auth: Neon Auth (Stack Auth)
+└─ (БД)      Neon Postgres · Auth: Neon Auth (Better Auth)
 ```
 
 ## Можливості
@@ -22,7 +22,7 @@ prom/
 |-----|-----------|
 | Клієнт | React 18, TypeScript, Vite, Tailwind, Radix UI, Framer Motion, Recharts, TanStack Query, React Router |
 | Сервер | NestJS 10, Prisma 5, Anthropic SDK, jose (JWT/JWKS) |
-| БД / Auth | Neon Postgres · Neon Auth (Stack Auth) |
+| БД / Auth | Neon Postgres · Neon Auth (Better Auth) |
 
 ---
 
@@ -39,7 +39,7 @@ prom/
 **server/.env**
 ```
 DATABASE_URL="postgresql://…@…neon.tech/neondb?sslmode=require"
-NEON_AUTH_JWKS_URL="https://api.stack-auth.com/api/v1/projects/<PROJECT_ID>/.well-known/jwks.json"
+NEON_AUTH_JWKS_URL="https://ep-xxx.neonauth.<region>.aws.neon.tech/neondb/auth/.well-known/jwks.json"
 ANTHROPIC_API_KEY="sk-ant-…"
 PORT=3001
 CLIENT_ORIGIN="http://localhost:5173"
@@ -48,9 +48,8 @@ CLIENT_ORIGIN="http://localhost:5173"
 **client/.env**
 ```
 VITE_API_URL=http://localhost:3001
-VITE_STACK_PROJECT_ID=<PROJECT_ID>
-VITE_STACK_PUBLISHABLE_CLIENT_KEY=pck_…
-VITE_AUTH_DEV_BYPASS=true   # локально — без реального логіну (мок-користувач)
+# Той самий хост, що й NEON_AUTH_JWKS_URL, але без /.well-known/jwks.json
+VITE_NEON_AUTH_URL=https://ep-xxx.neonauth.<region>.aws.neon.tech/neondb/auth
 ```
 
 ### 2. Встановлення
@@ -75,10 +74,15 @@ Vite проксіює `/api` на сервер. Відкрийте http://localh
 ---
 
 ## Автентифікація (Neon Auth)
-`client/src/lib/auth.tsx` — абстракція з двома режимами:
-- **dev-bypass** (`VITE_AUTH_DEV_BYPASS=true`) — мок-користувач і токен, застосунок працює одразу.
-- **прод** — підключіть `@stackframe/react` (`StackProvider`), а `getToken()` замініть на
-  отримання `accessToken` з поточного користувача. JWT надсилається у `Authorization: Bearer …`.
+Neon Auth = керований **Better Auth** (не Stack Auth — це попередня реалізація Neon).
+
+- `client/src/lib/authClient.ts` — клієнт `@neondatabase/neon-js` на `VITE_NEON_AUTH_URL`.
+- `client/src/lib/auth.tsx` — тонкий адаптер (`useAuth`): сесія з `useSession()`,
+  JWT з `authClient.token()` з кешуванням за `exp`, вихід через `signOut()`.
+- `client/src/pages/LoginPage.tsx` — вхід/реєстрація email + пароль на власних примітивах.
+
+JWT надсилається у `Authorization: Bearer …`; на 401 кеш токена скидається і запит
+повторюється один раз.
 
 Сервер (`server/src/auth/auth.guard.ts`) перевіряє JWT проти JWKS проєкту (`jose`),
 дістає `sub` як id користувача і синхронізує дзеркало в таблицю `User`.
@@ -103,7 +107,7 @@ POST   /api/ai/commit                підтвердити → в історі�
 ```
 
 ## Що варто доробити
-- Реальне підключення `@stackframe/react` замість dev-bypass.
+- OAuth-провайдери та відновлення пароля в Neon Auth (зараз лише email + пароль).
 - Зберігання фото в об'єктному сховищі (зараз документ не персиститься як файл).
 - Розширення каталогу біомаркерів і синонімів для точнішого AI-мапінгу.
 - Наповнення PROM-модуля (проходження опитувальників, підрахунок балів, графіки).

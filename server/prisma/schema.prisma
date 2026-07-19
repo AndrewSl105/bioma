@@ -62,16 +62,23 @@ model Biomarker {
   ownerId String?
   owner   User?   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
-  slug        String // напр. "vitamin-d", унікальний у межах власника
-  name        String // "Вітамін D (25-OH)"
-  shortName   String? // "Вітамін D"
+  slug String // напр. "vitamin-d", унікальний у межах власника
+
+  /// Канон — англійською. Локалізовані назви живуть у BiomarkerTranslation.
+  canonicalName  String // "Vitamin D (25-OH)"
+  canonicalShort String? // "Vitamin D"
+
   unit        String // "нг/мл", "ммоль/л", "МО/мл"
   category    String? // "Вітаміни", "Ліпідограма", "Гормони"
   loincCode   String? // код LOINC (для мапінгу з AI), опційно
   description String?
   precision   Int     @default(2) // к-сть знаків після коми
 
+  /// Градації інтерпретації (пороги + label) для зон на графіку. Формат — catalog.ts:Band[].
+  bands Json?
+
   referenceRanges ReferenceRange[]
+  translations    BiomarkerTranslation[]
   results         LabResult[]
 
   createdAt DateTime @default(now())
@@ -83,6 +90,24 @@ model Biomarker {
 
 /// Референсні межі. Можуть залежати від статі/віку.
 /// optimal* — «оптимальний» діапазон (вужчий за лабораторну норму), опційно.
+/// Локалізовані назви біомаркера. Канон (англ.) лишається на Biomarker.
+model BiomarkerTranslation {
+  id          String    @id @default(cuid())
+  biomarkerId String
+  biomarker   Biomarker @relation(fields: [biomarkerId], references: [id], onDelete: Cascade)
+
+  locale    String // "uk", "en", …
+  name      String // "Вітамін D (25-OH)"
+  shortName String? // "Вітамін D"
+  category  String? // "Вітаміни"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([biomarkerId, locale])
+  @@index([biomarkerId])
+}
+
 model ReferenceRange {
   id          String    @id @default(cuid())
   biomarkerId String

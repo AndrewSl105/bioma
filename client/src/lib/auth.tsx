@@ -1,16 +1,12 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useCallback, useContext, ReactNode } from 'react';
+import { authClient } from './authClient';
 
 /**
- * Абстракція автентифікації.
+ * Тонкий адаптер над Neon Auth (Better Auth), щоб решта застосунку
+ * не залежала від конкретного SDK.
  *
- * За замовчуванням працює dev-режим (VITE_AUTH_DEV_BYPASS=true): мок-користувач
- * і фіктивний токен — застосунок можна запустити без налаштованого Neon Auth.
- *
- * Для продакшену:
- *  1) обгорніть застосунок у <StackProvider app={stackClientApp}> (@stackframe/react),
- *  2) замініть getToken() на await stackApp.getUser()?.getAuthJson() → accessToken,
- *  3) вимкніть VITE_AUTH_DEV_BYPASS.
- * Neon Auth = Stack Auth; JWT перевіряється на бекенді через JWKS.
+ * Бекенд перевіряє JWT проти JWKS, тому в Authorization йде саме токен
+ * з authClient.token() — не сесійна кука.
  */
 export interface AuthUser {
   id: string;
@@ -22,36 +18,66 @@ interface AuthCtx {
   user: AuthUser | null;
   loading: boolean;
   getToken: () => Promise<string | null>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-const DEV_BYPASS = import.meta.env.VITE_AUTH_DEV_BYPASS === 'true';
+// Кеш JWT, щоб не ходити на /token перед кожним запитом до API.
+let cached: { token: string; expMs: number } | null = null;
+const SKEW_MS = 30_000; // оновлюємо трохи раніше за фактичний exp
 
-const DEV_USER: AuthUser = {
-  id: 'dev-user-00000000',
-  name: 'Андрій',
-  email: 'andrii@example.com',
-};
-// Токен для локального dev (бекенд може приймати його в dev-режимі).
-const DEV_TOKEN = 'dev-token';
+/** Дістає exp із JWT без залежностей; null, якщо розібрати не вдалося. */
+function readExpMs(jwt: string): number | null {
+  try {
+    const [, payload] = jwt.split('.');
+    if (!payload) return null;
+    const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    const exp = JSON.parse(json)?.exp;
+    return typeof exp === 'number' ? exp * 1000 : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Скидає кеш токена (напр. після 401 або виходу). */
+export function clearTokenCache() {
+  cached = null;
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const value: AuthCtx = DEV_BYPASS
+  const { data, isPending } = authClient.useSession();
+
+  const sessionUser = data?.user;
+  const user: AuthUser | null = sessionUser
     ? {
-        user: DEV_USER,
-        loading: false,
-        getToken: async () => DEV_TOKEN,
-        signOut: () => {},
+        id: sessionUser.id,
+        name: sessionUser.name ?? null,
+        email: sessionUser.email ?? null,
       }
-    : {
-        // TODO: підключити @stackframe/react (Neon Auth)
-        user: null,
-        loading: false,
-        getToken: async () => null,
-        signOut: () => {},
-      };
+    : null;
+
+  const getToken = useCallback(async () => {
+    if (cached && Date.now() < cached.expMs - SKEW_MS) return cached.token;
+
+    const res = await authClient.token();
+    const token = res.data?.token ?? null;
+    if (!token) {
+      cached = null;
+      return null;
+    }
+
+    // Якщо exp прочитати не вдалося — тримаємо коротко, щоб не залипнути.
+    cached = { token, expMs: readExpMs(token) ?? Date.now() + 60_000 };
+    return token;
+  }, []);
+
+  const signOut = useCallback(async () => {
+    clearTokenCache();
+    await authClient.signOut();
+  }, []);
+
+  const value: AuthCtx = { user, loading: isPending, getToken, signOut };
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

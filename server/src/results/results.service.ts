@@ -49,8 +49,8 @@ export class ResultsService {
     return {
       biomarker: {
         slug: biomarker.slug,
-        name: biomarker.name,
-        shortName: biomarker.shortName,
+        name: biomarker.canonicalName,
+        shortName: biomarker.canonicalShort,
         unit: biomarker.unit,
         category: biomarker.category,
         precision: biomarker.precision,
@@ -108,8 +108,8 @@ export class ResultsService {
       cards.push({
         biomarker: {
           slug: r.biomarker.slug,
-          name: r.biomarker.name,
-          shortName: r.biomarker.shortName,
+          name: r.biomarker.canonicalName,
+          shortName: r.biomarker.canonicalShort,
           category: r.biomarker.category,
           unit: r.biomarker.unit,
           precision: r.biomarker.precision,
