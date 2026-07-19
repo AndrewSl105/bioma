@@ -10,14 +10,17 @@ import { BetterAuthReactAdapter } from '@neondatabase/neon-js/auth/react';
  * перевіряє видані тут JWT проти JWKS того ж хоста.
  */
 const url = import.meta.env.VITE_NEON_AUTH_URL as string | undefined;
+const devBypass = import.meta.env.VITE_AUTH_DEV_BYPASS === 'true';
 
-if (!url) {
+if (!url && !devBypass) {
   throw new Error(
     'VITE_NEON_AUTH_URL не задано. Візьміть URL Neon Auth у консолі Neon ' +
       '(вигляд: https://ep-xxx.neonauth.<region>.aws.neon.tech/neondb/auth).',
   );
 }
 
-export const authClient = createAuthClient(url, {
+// У dev-bypass режимі клієнт не використовується (auth.tsx його не викликає),
+// але модуль має створитись — підставляємо заглушковий URL.
+export const authClient = createAuthClient(url ?? 'http://localhost/_auth-disabled', {
   adapter: BetterAuthReactAdapter(),
 });

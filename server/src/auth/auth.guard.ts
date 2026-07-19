@@ -14,6 +14,14 @@ import { UserSyncService } from './user-sync.service';
 export const IS_PUBLIC_KEY = 'isPublic';
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
 
+/**
+ * Локальна розробка без реального логіну: AUTH_DEV_BYPASS=true пропускає
+ * JWKS-перевірку і кладе фіксованого dev-користувача. Працює в парі з
+ * VITE_AUTH_DEV_BYPASS=true на клієнті. НЕ вмикати у проді.
+ */
+const DEV_BYPASS = process.env.AUTH_DEV_BYPASS === 'true';
+const DEV_USER = { userId: 'dev-user', email: 'dev@local.test', name: 'Dev User' };
+
 /** Без JWKS-URL гард нічого не перевірить — падаємо одразу і зрозуміло. */
 function requireJwksUrl(): string {
   const url = process.env.NEON_AUTH_JWKS_URL;
@@ -34,7 +42,8 @@ function requireJwksUrl(): string {
 @Injectable()
 export class AuthGuard implements CanActivate {
   private readonly logger = new Logger(AuthGuard.name);
-  private jwks = createRemoteJWKSet(new URL(requireJwksUrl()));
+  // У dev-bypass режимі JWKS не потрібен (і NEON_AUTH_JWKS_URL може бути відсутнім).
+  private jwks = DEV_BYPASS ? null : createRemoteJWKSet(new URL(requireJwksUrl()));
 
   constructor(
     private reflector: Reflector,
@@ -49,12 +58,23 @@ export class AuthGuard implements CanActivate {
     if (isPublic) return true;
 
     const req = context.switchToHttp().getRequest();
+
+    if (DEV_BYPASS) {
+      await this.userSync.ensureUser({
+        id: DEV_USER.userId,
+        email: DEV_USER.email,
+        name: DEV_USER.name,
+      });
+      req.user = { ...DEV_USER };
+      return true;
+    }
+
     const token = this.extractToken(req);
     if (!token) throw new UnauthorizedException('Немає токена доступу');
 
     let payload: JWTPayload;
     try {
-      ({ payload } = await jwtVerify(token, this.jwks));
+      ({ payload } = await jwtVerify(token, this.jwks!));
     } catch (e) {
       // Тільки збій перевірки підпису/строку — це справді 401.
       this.logger.warn(`JWT не пройшов перевірку: ${(e as Error).message}`);

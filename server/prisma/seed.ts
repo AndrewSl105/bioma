@@ -127,12 +127,23 @@ async function seedCatalog() {
   return { created, translations };
 }
 
-async function seedPatient(userId: string) {
+async function seedPatient() {
+  // Демо-панелі ллються ВИКЛЮЧНО в реальний акаунт Neon Auth — id тільки з env.
+  const userId = process.env.SEED_USER_ID?.trim();
+  if (!userId) {
+    throw new Error(
+      'SEED_USER_ID не задано. Передай реальний Neon Auth user id (sub), ' +
+        'напр. SEED_USER_ID=... npm run db:seed',
+    );
+  }
+
   // Профіль пацієнта (чол., 1998) — щоб працювали референси за статтю/віком.
-  // Користувача створює Neon Auth, тут лише доповнюємо стать і дату народження.
-  await prisma.user.update({
+  // Створюємо/оновлюємо користувача лише зі статтю і датою народження;
+  // email/ім'я НЕ чіпаємо — їх виставить сам Neon Auth при вході (ensureUser).
+  await prisma.user.upsert({
     where: { id: userId },
-    data: { sex: PATIENT_PROFILE.sex, birthDate: new Date(PATIENT_PROFILE.birthDate) },
+    update: { sex: PATIENT_PROFILE.sex, birthDate: new Date(PATIENT_PROFILE.birthDate) },
+    create: { id: userId, sex: PATIENT_PROFILE.sex, birthDate: new Date(PATIENT_PROFILE.birthDate) },
   });
 
   const catalogBySlug = new Map(CATALOG.map((c) => [c.slug, c]));
@@ -181,7 +192,7 @@ async function seedPatient(userId: string) {
     panelsCreated++;
     resultsCreated += created.results.length;
   }
-  return { panelsCreated, resultsCreated };
+  return { userId, panelsCreated, resultsCreated };
 }
 
 async function main() {
@@ -196,23 +207,11 @@ async function main() {
       `+1 PROM-опитувальник (PHQ-9).`,
   );
 
-  // Демо-дані пацієнта прив'язуються до реального користувача Neon Auth.
-  // Зареєструйтесь у застосунку, візьміть свій id і передайте як SEED_USER_ID.
-  const seedUserId = process.env.SEED_USER_ID;
-  if (!seedUserId) {
-    console.log('SEED_USER_ID не задано — демо-дані пацієнта пропущено.');
-    return;
-  }
-
-  const exists = await prisma.user.findUnique({ where: { id: seedUserId } });
-  if (!exists) {
-    console.log(`Користувача ${seedUserId} немає в БД — демо-дані пацієнта пропущено.`);
-    return;
-  }
-
-  const p = await seedPatient(seedUserId);
+  // Демо-дані пацієнта: тільки в реальний акаунт Neon Auth (SEED_USER_ID).
+  // Користувача створює сам сід (upsert), заходити в застосунок заздалегідь не треба.
+  const p = await seedPatient();
   console.log(
-      `Пацієнт ${seedUserId}: +${p.panelsCreated} панелей, ` +
+      `Пацієнт ${p.userId}: +${p.panelsCreated} панелей, ` +
       `+${p.resultsCreated} результатів на ${PATIENT_PANELS.length} дати.`,
   );
 }

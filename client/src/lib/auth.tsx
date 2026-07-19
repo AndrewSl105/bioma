@@ -23,6 +23,14 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
+/**
+ * Локальна розробка без реального логіну: VITE_AUTH_DEV_BYPASS==='true'
+ * дає мок-користувача і токен 'dev-token'. Працює ЛИШЕ в парі з
+ * AUTH_DEV_BYPASS=true на сервері (auth.guard.ts), інакше буде 401.
+ */
+const DEV_BYPASS = import.meta.env.VITE_AUTH_DEV_BYPASS === 'true';
+const DEV_USER: AuthUser = { id: 'dev-user', name: 'Dev User', email: 'dev@local.test' };
+
 // Кеш JWT, щоб не ходити на /token перед кожним запитом до API.
 let cached: { token: string; expMs: number } | null = null;
 const SKEW_MS = 30_000; // оновлюємо трохи раніше за фактичний exp
@@ -51,6 +59,7 @@ export function clearTokenCache() {
  * раніше за ефект батька, тож перші запити React Query летіли без токена.
  */
 export async function getToken(): Promise<string | null> {
+  if (DEV_BYPASS) return 'dev-token';
   if (cached && Date.now() < cached.expMs - SKEW_MS) return cached.token;
 
   const res = await authClient.token();
@@ -66,6 +75,19 @@ export async function getToken(): Promise<string | null> {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  if (DEV_BYPASS) {
+    const value: AuthCtx = {
+      user: DEV_USER,
+      loading: false,
+      getToken,
+      signOut: async () => {},
+    };
+    return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  }
+  return <NeonAuthProvider>{children}</NeonAuthProvider>;
+}
+
+function NeonAuthProvider({ children }: { children: ReactNode }) {
   const { data, isPending } = authClient.useSession();
 
   const sessionUser = data?.user;
