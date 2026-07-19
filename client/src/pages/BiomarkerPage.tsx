@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { Badge, Button, Card } from '@/components/ui/primitives';
 import { ResultChart } from '@/components/ResultChart';
 import { AddResultDialog } from '@/components/AddResultDialog';
@@ -11,7 +12,12 @@ import { fmtDate, fmtNum, flagColor, flagLabel } from '@/lib/format';
 export function BiomarkerPage() {
   const { slug = '' } = useParams();
   const qc = useQueryClient();
-  const { data, isLoading } = useQuery({ queryKey: ['history', slug], queryFn: () => api.history(slug) });
+  const { user } = useAuth();
+  const { data, isLoading } = useQuery({
+    queryKey: ['history', slug],
+    queryFn: () => api.history(slug),
+    enabled: !!user && !!slug,
+  });
 
   const del = useMutation({
     mutationFn: (id: string) => api.deleteResult(id),

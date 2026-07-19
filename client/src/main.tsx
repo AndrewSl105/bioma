@@ -7,7 +7,15 @@ import App from './App';
 import './index.css';
 
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      refetchOnWindowFocus: false,
+      // 401 ретраїти безглуздо (потрібен перелогін) — інакше шторм запитів.
+      retry: (failureCount, error) =>
+        (error as { status?: number })?.status === 401 ? false : failureCount < 2,
+    },
+  },
 });
 
 ReactDOM.createRoot(document.getElementById('root')!).render(

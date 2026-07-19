@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { Button, Field, Input } from './ui/primitives';
 
@@ -22,7 +23,12 @@ export function AddResultDialog({
   const qc = useQueryClient();
   const isMobile = useIsMobile();
 
-  const { data: biomarkers } = useQuery({ queryKey: ['biomarkers'], queryFn: api.biomarkers });
+  const { user } = useAuth();
+  const { data: biomarkers } = useQuery({
+    queryKey: ['biomarkers'],
+    queryFn: api.biomarkers,
+    enabled: !!user,
+  });
 
   const mutation = useMutation({
     mutationFn: () =>

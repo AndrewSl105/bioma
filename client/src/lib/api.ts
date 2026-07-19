@@ -2,13 +2,27 @@ import { clearTokenCache, getToken } from './auth';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
+/** Помилка API зі статусом — щоб UI і retry-логіка бачили справжню причину. */
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 async function send(path: string, init: RequestInit): Promise<Response> {
   const token = await getToken();
+  // Без токена запит не шлемо взагалі: сервер однаково відповість 401,
+  // а «тихі» безтокенні запити і створювали шторм у Network.
+  if (!token) throw new ApiError(401, 'Немає токена доступу — увійдіть у застосунок ще раз.');
   return fetch(`${BASE}/api${path}`, {
     ...init,
     headers: {
       ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      Authorization: `Bearer ${token}`,
       ...init.headers,
     },
   });
@@ -26,7 +40,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
   if (!res.ok) {
     const msg = await res.text().catch(() => res.statusText);
-    throw new Error(msg || `HTTP ${res.status}`);
+    throw new ApiError(res.status, msg || `HTTP ${res.status}`);
   }
   if (res.status === 204) return undefined as T;
   return res.json();

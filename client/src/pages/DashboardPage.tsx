@@ -3,13 +3,20 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Camera, Plus, TrendingUp } from 'lucide-react';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { Badge, Button, Card } from '@/components/ui/primitives';
 import { AddResultDialog } from '@/components/AddResultDialog';
 import { AiUploadDialog } from '@/components/AiUploadDialog';
 import { fmtDate, fmtNum, flagColor, flagLabel } from '@/lib/format';
 
 export function DashboardPage() {
-  const { data: cards, isLoading } = useQuery({ queryKey: ['overview'], queryFn: api.overview });
+  const { user } = useAuth();
+  // До логіну жодних запитів до API — інакше гарантований 401.
+  const { data: cards, isLoading } = useQuery({
+    queryKey: ['overview'],
+    queryFn: api.overview,
+    enabled: !!user,
+  });
 
   return (
     <div className="space-y-6">
