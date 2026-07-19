@@ -13,14 +13,20 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h1 className="font-display text-2xl font-bold tracking-tight">Мої показники</h1>
           <p className="text-sm text-muted">Динаміка аналізів і референсні межі в одному місці</p>
         </div>
-        <div className="flex gap-2">
-          <AiUploadDialog trigger={<Button variant="outline"><Camera size={17} /> З фото</Button>} />
-          <AddResultDialog trigger={<Button><Plus size={17} /> Додати значення</Button>} />
+        {/* на мобільному — кнопки на всю ширину в стовпчик (у ряд по 50%
+            «Додати значення» не вміщається на 360px), на sm:+ — звичайний ряд */}
+        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
+          <AiUploadDialog
+            trigger={<Button variant="outline" className="w-full sm:w-auto"><Camera size={17} /> З фото</Button>}
+          />
+          <AddResultDialog
+            trigger={<Button className="w-full sm:w-auto"><Plus size={17} /> Додати значення</Button>}
+          />
         </div>
       </div>
 

@@ -33,8 +33,8 @@ export function ResultChart({ history }: { history: History }) {
   const pad = (max - min || 1) * 0.15;
 
   return (
-    <div className="h-64 w-full">
-      <ResponsiveContainer>
+    <div className="h-[220px] w-full min-w-0 sm:h-[300px]">
+      <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
           <defs>
             <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
@@ -55,13 +55,21 @@ export function ResultChart({ history }: { history: History }) {
             />
           )}
 
-          <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6B7180' }} tickLine={false} axisLine={false} />
+          {/* minTickGap + preserveStartEnd — щоб підписи дат не зливались на 360px */}
+          <XAxis
+            dataKey="date"
+            tick={{ fontSize: 11, fill: '#6B7180' }}
+            tickLine={false}
+            axisLine={false}
+            interval="preserveStartEnd"
+            minTickGap={24}
+          />
           <YAxis
             domain={[Math.floor(min - pad), Math.ceil(max + pad)]}
             tick={{ fontSize: 11, fill: '#6B7180' }}
             tickLine={false}
             axisLine={false}
-            width={44}
+            width={40}
           />
           <Tooltip
             contentStyle={{ borderRadius: 12, border: '1px solid #E7E8EC', fontSize: 12 }}

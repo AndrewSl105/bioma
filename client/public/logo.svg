@@ -1,0 +1,26 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>Sport and medical logo</title>
+  <desc>Teal droplet outline with a dumbbell and heartbeat line.</desc>
+
+  <g stroke="#0E7C86" stroke-width="22" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Droplet -->
+    <path d="M256 54C256 54 122 210 122 327C122 407 182 458 256 458C330 458 390 407 390 327C390 210 256 54 256 54Z"/>
+
+    <!-- Dumbbell bar -->
+    <path d="M104 292H162"/>
+    <path d="M350 292H408"/>
+
+    <!-- Left weights -->
+    <path d="M86 258V326"/>
+    <path d="M110 244V340"/>
+    <path d="M134 266V318"/>
+
+    <!-- Right weights -->
+    <path d="M378 266V318"/>
+    <path d="M402 244V340"/>
+    <path d="M426 258V326"/>
+
+    <!-- Heartbeat -->
+    <path d="M144 292H210L230 248L258 338L286 276L306 292H368"/>
+  </g>
+</svg>

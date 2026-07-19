@@ -29,23 +29,26 @@ export function BiomarkerPage() {
         <ArrowLeft size={16} /> Усі показники
       </Link>
 
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="min-w-0">
           {biomarker.category && (
             <span className="text-[11px] uppercase tracking-wide text-muted">{biomarker.category}</span>
           )}
           <h1 className="font-display text-2xl font-bold tracking-tight">{biomarker.name}</h1>
         </div>
-        <AddResultDialog defaultSlug={slug} trigger={<Button><Plus size={17} /> Додати значення</Button>} />
+        <AddResultDialog
+          defaultSlug={slug}
+          trigger={<Button className="w-full sm:w-auto"><Plus size={17} /> Додати значення</Button>}
+        />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card className="p-5">
           <p className="text-xs text-muted">Останнє значення</p>
           {latest ? (
             <>
               <div className="mt-2 flex items-baseline gap-1.5">
-                <span className="tabnums font-display text-4xl font-bold">
+                <span className="tabnums font-display text-3xl font-bold sm:text-4xl">
                   {fmtNum(latest.value, biomarker.precision)}
                 </span>
                 <span className="text-sm text-muted">{biomarker.unit}</span>
@@ -100,22 +103,27 @@ export function BiomarkerPage() {
         {series.slice().reverse().map((p) => {
           const f = flagColor(p.flag);
           return (
-            <div key={p.id} className="flex items-center gap-4 px-5 py-3">
-              <div className="tabnums w-24 font-display text-lg font-semibold">
+            <div key={p.id} className="flex min-h-[3.25rem] items-center gap-3 px-4 py-2.5 sm:gap-4 sm:px-5 sm:py-3">
+              <div className="tabnums w-[4.5rem] shrink-0 font-display text-lg font-semibold sm:w-24">
                 {fmtNum(p.value, biomarker.precision)}
                 <span className="ml-1 text-xs font-normal text-muted">{p.unit}</span>
               </div>
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <div className="text-sm">{fmtDate(p.measuredAt)}</div>
-                <div className="flex items-center gap-2 text-xs text-muted">
-                  <span className={f.text}>{flagLabel[p.flag]}</span>
+                <div className="flex min-w-0 items-center gap-2 text-xs text-muted">
+                  <span className={`${f.text} shrink-0`}>{flagLabel[p.flag]}</span>
                   {p.source === 'AI_PHOTO' && (
-                    <span className="inline-flex items-center gap-1 text-primary"><Sparkles size={11} /> з фото</span>
+                    <span className="inline-flex shrink-0 items-center gap-1 text-primary"><Sparkles size={11} /> з фото</span>
                   )}
-                  {p.note && <span>· {p.note}</span>}
+                  {p.note && <span className="truncate">· {p.note}</span>}
                 </div>
               </div>
-              <Button variant="ghost" className="h-8 w-8 p-0" onClick={() => del.mutate(p.id)}>
+              <Button
+                variant="ghost"
+                aria-label="Видалити значення"
+                className="h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-9"
+                onClick={() => del.mutate(p.id)}
+              >
                 <Trash2 size={15} />
               </Button>
             </div>

@@ -39,7 +39,8 @@ export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputE
     <input
       ref={ref}
       className={cn(
-        'h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink',
+        // text-base на мобільному прибирає автозум при фокусі на iOS
+        'h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-base text-ink sm:text-sm',
         'placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
         className,
       )}

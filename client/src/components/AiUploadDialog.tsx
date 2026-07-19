@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Camera, Check, Loader2, X } from 'lucide-react';
 import { api, AiExtractResult } from '@/lib/api';
+import { useIsMobile } from '@/lib/useIsMobile';
 import { Button } from './ui/primitives';
 import { fmtNum } from '@/lib/format';
 
@@ -18,6 +19,7 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
   const [takenAt, setTakenAt] = useState('');
   const [selected, setSelected] = useState<Record<number, boolean>>({});
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
 
   const extract = useMutation({
     mutationFn: (file: File) => api.aiExtract(file),
@@ -69,22 +71,29 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
               <motion.div className="fixed inset-0 z-40 bg-ink/30 backdrop-blur-sm"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
             </Dialog.Overlay>
+            {/* Позиціювання — на Dialog.Content (Tailwind), анімація — на вкладеному
+                motion.div. Так transform шторки не конфліктує з центруванням на sm:+. */}
             <Dialog.Content asChild>
-              <motion.div
-                className="fixed left-1/2 top-1/2 z-50 w-[min(560px,94vw)] max-h-[88vh] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl bg-surface shadow-card"
-                initial={{ opacity: 0, y: 12, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 8, scale: 0.98 }}
-                transition={{ type: 'spring', stiffness: 320, damping: 28 }}
-              >
-                <div className="flex items-center justify-between border-b border-line px-6 py-4">
-                  <Dialog.Title className="text-lg font-semibold">Розпізнати з фото</Dialog.Title>
-                  <Dialog.Close asChild>
-                    <Button variant="ghost" className="h-8 w-8 p-0"><X size={18} /></Button>
-                  </Dialog.Close>
-                </div>
+              <div className="fixed inset-x-0 bottom-0 z-50 sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:w-[min(560px,94vw)] sm:-translate-x-1/2 sm:-translate-y-1/2">
+                <motion.div
+                  className="flex max-h-[90dvh] flex-col overflow-hidden rounded-t-2xl bg-surface shadow-card sm:max-h-[88dvh] sm:rounded-2xl"
+                  initial={isMobile ? { y: '100%' } : { opacity: 0, y: 12, scale: 0.98 }}
+                  animate={isMobile ? { y: 0 } : { opacity: 1, y: 0, scale: 1 }}
+                  exit={isMobile ? { y: '100%' } : { opacity: 0, y: 8, scale: 0.98 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 28 }}
+                >
+                  {/* grabber — тільки на мобільному */}
+                  <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-line sm:hidden" />
 
-                <div className="max-h-[calc(88vh-64px)] overflow-y-auto p-6">
+                  <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4 sm:px-6">
+                    <Dialog.Title className="text-lg font-semibold">Розпізнати з фото</Dialog.Title>
+                    <Dialog.Close asChild>
+                      <Button variant="ghost" className="h-10 w-10 shrink-0 p-0 sm:h-8 sm:w-8"><X size={18} /></Button>
+                    </Dialog.Close>
+                  </div>
+
+                  {/* єдина скрол-зона шторки */}
+                  <div className="min-h-0 flex-1 overflow-y-auto p-5 sm:p-6">
                   {!preview && (
                     <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-line py-14 text-center hover:border-primary/50 hover:bg-primary-soft/40">
                       {extract.isPending ? (
@@ -115,11 +124,11 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
 
                   {preview && (
                     <div className="space-y-4">
-                      <div className="flex items-center gap-3 text-sm">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
                         <span className="text-muted">Дата дослідження</span>
                         <input type="date" value={takenAt} onChange={(e) => setTakenAt(e.target.value)}
-                          className="h-9 rounded-lg border border-line px-2 text-sm" />
-                        {preview.labName && <span className="text-muted">· {preview.labName}</span>}
+                          className="h-11 rounded-lg border border-line px-2 text-base sm:h-9 sm:text-sm" />
+                        {preview.labName && <span className="min-w-0 truncate text-muted">· {preview.labName}</span>}
                       </div>
 
                       <div className="space-y-2">
@@ -154,7 +163,13 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
                           );
                         })}
                       </div>
+                    </div>
+                  )}
+                  </div>
 
+                  {/* панель дії — поза скрол-зоною, тому завжди видима */}
+                  {preview && (
+                    <div className="shrink-0 border-t border-line bg-surface p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:p-6 sm:pb-6">
                       <Button
                         className="w-full"
                         disabled={selectedCount === 0 || commit.isPending}
@@ -164,8 +179,8 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
                       </Button>
                     </div>
                   )}
-                </div>
-              </motion.div>
+                </motion.div>
+              </div>
             </Dialog.Content>
           </Dialog.Portal>
         )}

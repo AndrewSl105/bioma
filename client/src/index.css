@@ -5,6 +5,10 @@
 :root { color-scheme: light; }
 
 html, body, #root { height: 100%; }
+
+/* захист від горизонтального скролу на вузьких екранах */
+html, body { overflow-x: hidden; }
+
 body {
   margin: 0;
   background: theme('colors.paper');
@@ -15,6 +19,11 @@ body {
 
 /* табличні цифри для значень аналізів */
 .tabnums { font-variant-numeric: tabular-nums; }
+
+/* safe-area (домашня смуга на iOS) — для випадків без адаптивного перевизначення.
+   Там, де треба перекрити на sm:+, у компонентах використано
+   pb-[calc(...+env(safe-area-inset-bottom))], щоб працював каскад Tailwind. */
+.pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
