@@ -7,10 +7,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api');
-  app.enableCors({
-    origin: process.env.CLIENT_ORIGIN?.split(',') ?? 'http://localhost:5173',
-    credentials: true,
-  });
+
+  // Список через кому; trim — щоб "a, b" не ламався мовчки на пробілі.
+  const origins = (process.env.CLIENT_ORIGIN ?? 'http://localhost:5173')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  app.enableCors({ origin: origins, credentials: true });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -23,5 +27,7 @@ async function bootstrap() {
   await app.listen(port);
   // eslint-disable-next-line no-console
   console.log(`Bioma API → http://localhost:${port}/api`);
+  // eslint-disable-next-line no-console
+  console.log(`CORS дозволено для: ${origins.join(', ')}`);
 }
 bootstrap();

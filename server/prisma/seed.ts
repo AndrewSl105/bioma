@@ -1,3 +1,4 @@
+import 'dotenv/config'; // tsx не вантажить .env сам
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, Sex, ResultFlag, ResultSource } from '../src/generated/prisma/client';
 import { CATALOG, CatalogRange } from './catalog';
