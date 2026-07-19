@@ -1,19 +1,13 @@
-import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { LogOut, Loader2 } from 'lucide-react';
 import { useAuth } from './lib/auth';
-import { registerTokenGetter } from './lib/api';
 import { Button } from './components/ui/primitives';
 import { DashboardPage } from './pages/DashboardPage';
 import { BiomarkerPage } from './pages/BiomarkerPage';
 import { LoginPage } from './pages/LoginPage';
 
 export default function App() {
-  const { user, loading, getToken, signOut } = useAuth();
-
-  useEffect(() => {
-    registerTokenGetter(getToken);
-  }, [getToken]);
+  const { user, loading, signOut } = useAuth();
 
   // Поки сесія підвантажується — не блимаємо екраном логіну на F5.
   if (loading) {

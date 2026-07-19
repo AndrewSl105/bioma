@@ -45,6 +45,26 @@ export function clearTokenCache() {
   cached = null;
 }
 
+/**
+ * JWT для Authorization. Свідомо на рівні модуля, а не в компоненті:
+ * реєстрація через useEffect створювала гонку — ефекти дітей виконуються
+ * раніше за ефект батька, тож перші запити React Query летіли без токена.
+ */
+export async function getToken(): Promise<string | null> {
+  if (cached && Date.now() < cached.expMs - SKEW_MS) return cached.token;
+
+  const res = await authClient.token();
+  const token = res.data?.token ?? null;
+  if (!token) {
+    cached = null;
+    return null;
+  }
+
+  // Якщо exp прочитати не вдалося — тримаємо коротко, щоб не залипнути.
+  cached = { token, expMs: readExpMs(token) ?? Date.now() + 60_000 };
+  return token;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const { data, isPending } = authClient.useSession();
 
@@ -56,21 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: sessionUser.email ?? null,
       }
     : null;
-
-  const getToken = useCallback(async () => {
-    if (cached && Date.now() < cached.expMs - SKEW_MS) return cached.token;
-
-    const res = await authClient.token();
-    const token = res.data?.token ?? null;
-    if (!token) {
-      cached = null;
-      return null;
-    }
-
-    // Якщо exp прочитати не вдалося — тримаємо коротко, щоб не залипнути.
-    cached = { token, expMs: readExpMs(token) ?? Date.now() + 60_000 };
-    return token;
-  }, []);
 
   const signOut = useCallback(async () => {
     clearTokenCache();

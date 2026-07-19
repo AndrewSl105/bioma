@@ -1,14 +1,9 @@
-import { clearTokenCache } from './auth';
+import { clearTokenCache, getToken } from './auth';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
-let tokenGetter: () => Promise<string | null> = async () => null;
-export function registerTokenGetter(fn: () => Promise<string | null>) {
-  tokenGetter = fn;
-}
-
 async function send(path: string, init: RequestInit): Promise<Response> {
-  const token = await tokenGetter();
+  const token = await getToken();
   return fetch(`${BASE}/api${path}`, {
     ...init,
     headers: {
