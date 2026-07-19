@@ -223,9 +223,10 @@ export class AiService {
       items: { biomarkerSlug: string; value: number; unit: string; rawText?: string }[];
     },
   ) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    const ageYears = user?.birthDate
-      ? Math.floor((Date.now() - user.birthDate.getTime()) / 31557600000)
+    // Профілю може ще не бути — тоді стать/вік невідомі, референси best-effort.
+    const profile = await this.prisma.userProfile.findUnique({ where: { userId } });
+    const ageYears = profile?.birthDate
+      ? Math.floor((Date.now() - profile.birthDate.getTime()) / 31557600000)
       : null;
 
     const panel = await this.prisma.labPanel.create({
@@ -247,7 +248,7 @@ export class AiService {
       if (!biomarker) continue;
 
       const range = pickRange(biomarker.referenceRanges, {
-        sex: user?.sex ?? undefined,
+        sex: profile?.sex ?? undefined,
         ageYears,
       });
       await this.prisma.labResult.create({

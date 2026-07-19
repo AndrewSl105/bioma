@@ -37,12 +37,13 @@ enum ResultFlag {
   UNKNOWN
 }
 
-/// Дзеркало користувача з Neon Auth (Stack Auth).
-/// id === Stack user id (sub з JWT). Створюється при першому запиті.
-model User {
-  id        String    @id
-  email     String?
-  name      String?
+/// Наші поля користувача. САМА особа (email, ім'я) живе ТІЛЬКИ в Neon Auth
+/// (neon_auth.users_sync) — тут ми її не дублюємо.
+/// userId === Neon Auth id (sub з JWT). Свідомо БЕЗ FK на neon_auth.users_sync:
+/// це керована Neon схема, і зовнішній ключ у неї нам не належить.
+/// Рядок створюється явно при першому вході — POST /api/profile/ensure.
+model UserProfile {
+  userId    String    @id
   sex       Sex?
   birthDate DateTime?
   createdAt DateTime  @default(now())
@@ -51,8 +52,8 @@ model User {
   results       LabResult[]
   panels        LabPanel[]
   documents     Document[]
-  biomarkers    Biomarker[] // користувацькі (custom) біомаркери
   promResponses PromResponse[]
+  biomarkers    Biomarker[] // користувацькі (custom) біомаркери
 }
 
 /// Тип аналізу / показник (напр. "Вітамін D (25-OH)", "Загальний холестерин").
@@ -60,7 +61,7 @@ model User {
 model Biomarker {
   id      String  @id @default(cuid())
   ownerId String?
-  owner   User?   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  owner   UserProfile? @relation(fields: [ownerId], references: [userId], onDelete: Cascade)
 
   slug String // напр. "vitamin-d", унікальний у межах власника
 
@@ -131,9 +132,9 @@ model ReferenceRange {
 /// Панель/комплекс — група результатів з одного документа/дати
 /// (напр. "Комплекс №112 Ліпідограма").
 model LabPanel {
-  id         String    @id @default(cuid())
+  id         String      @id @default(cuid())
   userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       UserProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
   name       String?
   labName    String? // назва лабораторії
   takenAt    DateTime // дата забору/дослідження
@@ -148,11 +149,11 @@ model LabPanel {
 
 /// Одне виміряне значення.
 model LabResult {
-  id          String    @id @default(cuid())
+  id          String      @id @default(cuid())
   userId      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        UserProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
   biomarkerId String
-  biomarker   Biomarker @relation(fields: [biomarkerId], references: [id], onDelete: Restrict)
+  biomarker   Biomarker   @relation(fields: [biomarkerId], references: [id], onDelete: Restrict)
 
   value      Float
   unit       String
@@ -176,7 +177,7 @@ model LabResult {
 model Document {
   id         String         @id @default(cuid())
   userId     String
-  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       UserProfile    @relation(fields: [userId], references: [userId], onDelete: Cascade)
   storageKey String // ключ/URL у сховищі (S3 / Neon blob / локально)
   mimeType   String
   fileName   String?
@@ -209,7 +210,7 @@ model PromInstrument {
 model PromResponse {
   id           String         @id @default(cuid())
   userId       String
-  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         UserProfile    @relation(fields: [userId], references: [userId], onDelete: Cascade)
   instrumentId String
   instrument   PromInstrument @relation(fields: [instrumentId], references: [id], onDelete: Cascade)
 

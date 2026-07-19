@@ -1,6 +1,7 @@
 import { Route, Routes } from 'react-router-dom';
 import { LogOut, Loader2 } from 'lucide-react';
 import { useAuth } from './lib/auth';
+import { useEnsureProfile } from './lib/useEnsureProfile';
 import { Button } from './components/ui/primitives';
 import { DashboardPage } from './pages/DashboardPage';
 import { BiomarkerPage } from './pages/BiomarkerPage';
@@ -8,6 +9,10 @@ import { LoginPage } from './pages/LoginPage';
 
 export default function App() {
   const { user, loading, signOut } = useAuth();
+  // Профіль у нашій БД створюємо одразу, як з'явився користувач Neon Auth.
+  // Запити на читання його не чекають, а от записи (додати результат) без
+  // рядка UserProfile впадуть на FK — тому виклик іде якнайраніше.
+  useEnsureProfile();
 
   // Поки сесія підвантажується — не блимаємо екраном логіну на F5.
   if (loading) {

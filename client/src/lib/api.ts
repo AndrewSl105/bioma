@@ -49,6 +49,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  /**
+   * Створює UserProfile у нашій БД. Викликається один раз одразу після
+   * логіну/реєстрації — саме це момент появи профілю. Ідемпотентно.
+   */
+  ensureProfile: () => request<Profile>('/profile/ensure', { method: 'POST' }),
+  profile: () => request<Profile>('/profile'),
+  updateProfile: (body: UpdateProfileBody) =>
+    request<Profile>('/profile', { method: 'PATCH', body: JSON.stringify(body) }),
   overview: () => request<OverviewCard[]>('/overview'),
   biomarkers: () => request<Biomarker[]>('/biomarkers'),
   history: (slug: string) => request<History>(`/results?biomarker=${encodeURIComponent(slug)}`),
@@ -68,6 +76,14 @@ export const api = {
 };
 
 // ── типи ──
+export type Sex = 'MALE' | 'FEMALE' | 'ANY';
+/** Наші поля користувача. Email/ім'я живуть у Neon Auth, не тут. */
+export interface Profile {
+  userId: string;
+  sex: Sex | null;
+  birthDate: string | null;
+}
+export interface UpdateProfileBody { sex?: Sex; birthDate?: string | null; }
 export type Flag = 'LOW' | 'NORMAL' | 'HIGH' | 'UNKNOWN';
 export interface OverviewCard {
   biomarker: { slug: string; name: string; shortName: string | null; category: string | null; unit: string; precision: number };

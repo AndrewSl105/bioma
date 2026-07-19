@@ -16,13 +16,15 @@ export class ResultsService {
     });
     if (!biomarker) throw new NotFoundException('Біомаркер не знайдено');
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    const ageYears = user?.birthDate
-      ? Math.floor((Date.now() - user.birthDate.getTime()) / 31557600000)
+    // Профілю може ще не бути (перший вхід не завершився) — тоді стать/вік
+    // невідомі, і референси добираються best-effort, без падіння.
+    const profile = await this.prisma.userProfile.findUnique({ where: { userId } });
+    const ageYears = profile?.birthDate
+      ? Math.floor((Date.now() - profile.birthDate.getTime()) / 31557600000)
       : null;
 
     const range = pickRange(biomarker.referenceRanges, {
-      sex: user?.sex ?? undefined,
+      sex: profile?.sex ?? undefined,
       ageYears,
     });
 
@@ -73,9 +75,11 @@ export class ResultsService {
 
   /** Останнє значення по кожному показнику (для дашборда). */
   async overview(userId: string) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    const ageYears = user?.birthDate
-      ? Math.floor((Date.now() - user.birthDate.getTime()) / 31557600000)
+    // Профілю може ще не бути (перший вхід не завершився) — тоді стать/вік
+    // невідомі, і референси добираються best-effort, без падіння.
+    const profile = await this.prisma.userProfile.findUnique({ where: { userId } });
+    const ageYears = profile?.birthDate
+      ? Math.floor((Date.now() - profile.birthDate.getTime()) / 31557600000)
       : null;
 
     const results = await this.prisma.labResult.findMany({
@@ -102,7 +106,7 @@ export class ResultsService {
       if (seen.has(r.biomarkerId)) continue;
       seen.add(r.biomarkerId);
       const range = pickRange(r.biomarker.referenceRanges, {
-        sex: user?.sex ?? undefined,
+        sex: profile?.sex ?? undefined,
         ageYears,
       });
       cards.push({
@@ -129,12 +133,14 @@ export class ResultsService {
     });
     if (!biomarker) throw new NotFoundException('Біомаркер не знайдено');
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
-    const ageYears = user?.birthDate
-      ? Math.floor((Date.now() - user.birthDate.getTime()) / 31557600000)
+    // Профілю може ще не бути (перший вхід не завершився) — тоді стать/вік
+    // невідомі, і референси добираються best-effort, без падіння.
+    const profile = await this.prisma.userProfile.findUnique({ where: { userId } });
+    const ageYears = profile?.birthDate
+      ? Math.floor((Date.now() - profile.birthDate.getTime()) / 31557600000)
       : null;
     const range = pickRange(biomarker.referenceRanges, {
-      sex: user?.sex ?? undefined,
+      sex: profile?.sex ?? undefined,
       ageYears,
     });
     const flag = computeFlag(dto.value, range ?? undefined);

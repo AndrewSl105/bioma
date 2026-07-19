@@ -1,9 +1,10 @@
 import { Global, Module } from '@nestjs/common';
-import { UserSyncService } from './user-sync.service';
 
+/**
+ * Гард реєструється глобально в AppModule і власних залежностей не має
+ * (у БД він більше не пише). Модуль лишається місцем для майбутніх
+ * auth-провайдерів.
+ */
 @Global()
-@Module({
-  providers: [UserSyncService],
-  exports: [UserSyncService],
-})
+@Module({})
 export class AuthModule {}

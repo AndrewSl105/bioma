@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { AuthGuard } from './auth/auth.guard';
+import { ProfileModule } from './profile/profile.module';
 import { BiomarkersModule } from './biomarkers/biomarkers.module';
 import { ResultsModule } from './results/results.module';
 import { AiModule } from './ai/ai.module';
@@ -13,6 +14,7 @@ import { AiModule } from './ai/ai.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
+    ProfileModule,
     BiomarkersModule,
     ResultsModule,
     AiModule,

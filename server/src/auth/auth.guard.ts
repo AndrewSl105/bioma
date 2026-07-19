@@ -2,14 +2,12 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
-  InternalServerErrorException,
   Logger,
   SetMetadata,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
-import { UserSyncService } from './user-sync.service';
 
 export const IS_PUBLIC_KEY = 'isPublic';
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -35,9 +33,12 @@ function requireJwksUrl(): string {
 }
 
 /**
- * Перевіряє JWT, виданий Neon Auth (Stack Auth), проти JWKS проєкту.
- * У success-кейсі кладе { userId, email, name } у request.user
- * і синхронізує дзеркало користувача в БД.
+ * Перевіряє JWT, виданий Neon Auth (Stack Auth), проти JWKS проєкту,
+ * і кладе { userId, email, name } у request.user.
+ *
+ * Свідомо НІЧОГО не пише в БД: гард не має залежати від наявності рядка
+ * UserProfile. Профіль створюється явно при першому вході —
+ * POST /api/profile/ensure.
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -45,10 +46,7 @@ export class AuthGuard implements CanActivate {
   // У dev-bypass режимі JWKS не потрібен (і NEON_AUTH_JWKS_URL може бути відсутнім).
   private jwks = DEV_BYPASS ? null : createRemoteJWKSet(new URL(requireJwksUrl()));
 
-  constructor(
-    private reflector: Reflector,
-    private userSync: UserSyncService,
-  ) {}
+  constructor(private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -60,11 +58,6 @@ export class AuthGuard implements CanActivate {
     const req = context.switchToHttp().getRequest();
 
     if (DEV_BYPASS) {
-      await this.userSync.ensureUser({
-        id: DEV_USER.userId,
-        email: DEV_USER.email,
-        name: DEV_USER.name,
-      });
       req.user = { ...DEV_USER };
       return true;
     }
@@ -89,16 +82,6 @@ export class AuthGuard implements CanActivate {
     const userId = payload.sub;
     const email = (payload.email as string) ?? null;
     const name = (payload.name as string) ?? null;
-
-    // Дзеркало користувача в нашій БД. Свідомо НЕ ковтаємо помилку:
-    // раніше вона маскувалась під «недійсний токен» і робила проблему
-    // невідстежуваною. Збій запису — це 500 на нашому боці, а не 401.
-    try {
-      await this.userSync.ensureUser({ id: userId, email, name });
-    } catch (e) {
-      this.logger.error(`Не вдалося синхронізувати користувача ${userId}: ${(e as Error).message}`);
-      throw new InternalServerErrorException('Помилка синхронізації користувача');
-    }
 
     req.user = { userId, email, name };
     return true;

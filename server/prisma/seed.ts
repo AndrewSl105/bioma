@@ -138,12 +138,12 @@ async function seedPatient() {
   }
 
   // Профіль пацієнта (чол., 1998) — щоб працювали референси за статтю/віком.
-  // Створюємо/оновлюємо користувача лише зі статтю і датою народження;
-  // email/ім'я НЕ чіпаємо — їх виставить сам Neon Auth при вході (ensureUser).
-  await prisma.user.upsert({
-    where: { id: userId },
+  // UserProfile мусить існувати ДО панелей: усі аналізи мають на нього FK.
+  // Email/ім'я тут не зберігаємо — особа живе тільки в Neon Auth.
+  await prisma.userProfile.upsert({
+    where: { userId },
     update: { sex: PATIENT_PROFILE.sex, birthDate: new Date(PATIENT_PROFILE.birthDate) },
-    create: { id: userId, sex: PATIENT_PROFILE.sex, birthDate: new Date(PATIENT_PROFILE.birthDate) },
+    create: { userId, sex: PATIENT_PROFILE.sex, birthDate: new Date(PATIENT_PROFILE.birthDate) },
   });
 
   const catalogBySlug = new Map(CATALOG.map((c) => [c.slug, c]));
@@ -212,7 +212,7 @@ async function main() {
   );
 
   // Демо-дані пацієнта: тільки в реальний акаунт Neon Auth (SEED_USER_ID).
-  // Користувача створює сам сід (upsert), заходити в застосунок заздалегідь не треба.
+  // UserProfile створює сам сід (upsert), заходити в застосунок заздалегідь не треба.
   const p = await seedPatient();
   const skipped = p.panelsSkipped
       ? ` (${p.panelsSkipped} панелей уже існували — пропущено, дублів немає)`
