@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ResultSource } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,19 +8,44 @@ import { computeFlag, pickRange } from '../biomarkers/reference.util';
 import {
   EXTRACTION_SYSTEM,
   EXTRACTION_TOOL,
+  OPENAI_EXTRACTION_TOOL,
   ExtractionResult,
 } from './extraction.prompt';
 
-const MODEL = 'claude-sonnet-5';
+type AiProvider = 'anthropic' | 'openai';
+
+const PROVIDER = (process.env.AI_PROVIDER ?? 'anthropic') as AiProvider;
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5';
+const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5.6-terra';
+
+const EXTRACTION_USER_TEXT = 'Витягни всі показники з цього лабораторного бланка.';
 
 @Injectable()
 export class AiService {
-  private anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  // Клієнти створюються ліниво: ключ потрібен лише для активного провайдера.
+  private anthropicClient?: Anthropic;
+  private openaiClient?: OpenAI;
 
   constructor(private prisma: PrismaService) {}
 
+  private get anthropic(): Anthropic {
+    if (!process.env.ANTHROPIC_API_KEY)
+      throw new Error('ANTHROPIC_API_KEY не налаштовано');
+    return (this.anthropicClient ??= new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+    }));
+  }
+
+  private get openai(): OpenAI {
+    if (!process.env.OPENAI_API_KEY)
+      throw new Error('OPENAI_API_KEY не налаштовано');
+    return (this.openaiClient ??= new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    }));
+  }
+
   /**
-   * Крок 1. Фото → Claude vision → структуровані показники.
+   * Крок 1. Фото → vision-модель (Claude або OpenAI) → структуровані показники.
    * Створює Document (для аудиту), НЕ додаючи результатів в історію.
    * Повертає прев'ю + мапінг на біомаркери каталогу для підтвердження.
    */
@@ -39,38 +65,10 @@ export class AiService {
     });
 
     try {
-      const message = await this.anthropic.messages.create({
-        model: MODEL,
-        max_tokens: 2048,
-        system: EXTRACTION_SYSTEM,
-        tools: [EXTRACTION_TOOL],
-        tool_choice: { type: 'tool', name: EXTRACTION_TOOL.name },
-        messages: [
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'image',
-                source: {
-                  type: 'base64',
-                  media_type: file.mimetype as any,
-                  data: file.buffer.toString('base64'),
-                },
-              },
-              {
-                type: 'text',
-                text: 'Витягни всі показники з цього лабораторного бланка.',
-              },
-            ],
-          },
-        ],
-      });
-
-      const toolUse = message.content.find((b) => b.type === 'tool_use');
-      if (!toolUse || toolUse.type !== 'tool_use')
-        throw new Error('AI не повернув структурованих даних');
-
-      const extraction = toolUse.input as ExtractionResult;
+      const extraction =
+        PROVIDER === 'openai'
+          ? await this.extractWithOpenAi(file)
+          : await this.extractWithAnthropic(file);
 
       await this.prisma.document.update({
         where: { id: doc.id },
@@ -90,6 +88,75 @@ export class AiService {
         data: { status: 'FAILED', error: String(e?.message ?? e) },
       });
       throw new BadRequestException(`Не вдалося розпізнати документ: ${e?.message ?? e}`);
+    }
+  }
+
+  /** Виклик Claude vision із примусовим tool use. */
+  private async extractWithAnthropic(file: UploadedFileLike): Promise<ExtractionResult> {
+    const message = await this.anthropic.messages.create({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 2048,
+      system: EXTRACTION_SYSTEM,
+      tools: [EXTRACTION_TOOL],
+      tool_choice: { type: 'tool', name: EXTRACTION_TOOL.name },
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: file.mimetype as any,
+                data: file.buffer.toString('base64'),
+              },
+            },
+            { type: 'text', text: EXTRACTION_USER_TEXT },
+          ],
+        },
+      ],
+    });
+
+    const toolUse = message.content.find((b) => b.type === 'tool_use');
+    if (!toolUse || toolUse.type !== 'tool_use')
+      throw new Error('AI не повернув структурованих даних');
+
+    // Anthropic віддає input вже розпарсеним об'єктом.
+    return toolUse.input as ExtractionResult;
+  }
+
+  /** Виклик OpenAI vision із примусовим function calling. */
+  private async extractWithOpenAi(file: UploadedFileLike): Promise<ExtractionResult> {
+    const dataUri = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+
+    const completion = await this.openai.chat.completions.create({
+      model: OPENAI_MODEL,
+      tools: [OPENAI_EXTRACTION_TOOL],
+      tool_choice: {
+        type: 'function',
+        function: { name: OPENAI_EXTRACTION_TOOL.function.name },
+      },
+      messages: [
+        { role: 'system', content: EXTRACTION_SYSTEM },
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: dataUri } },
+            { type: 'text', text: EXTRACTION_USER_TEXT },
+          ],
+        },
+      ],
+    });
+
+    const call = completion.choices[0]?.message?.tool_calls?.[0];
+    if (!call || call.type !== 'function')
+      throw new Error('AI не повернув структурованих даних');
+
+    // На відміну від Anthropic, OpenAI віддає аргументи рядком JSON.
+    try {
+      return JSON.parse(call.function.arguments) as ExtractionResult;
+    } catch {
+      throw new Error('AI повернув невалідний JSON');
     }
   }
 

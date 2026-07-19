@@ -37,6 +37,16 @@ export const EXTRACTION_TOOL = {
   },
 };
 
+/** Той самий інструмент у форматі OpenAI function calling. */
+export const OPENAI_EXTRACTION_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: EXTRACTION_TOOL.name,
+    description: EXTRACTION_TOOL.description,
+    parameters: EXTRACTION_TOOL.input_schema,
+  },
+};
+
 export interface ExtractedItem {
   name: string;
   loinc: string | null;
