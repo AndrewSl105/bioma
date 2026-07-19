@@ -53,8 +53,15 @@ export function clearTokenCache() {
 export async function getToken(): Promise<string | null> {
   if (cached && Date.now() < cached.expMs - SKEW_MS) return cached.token;
 
-  const res = await authClient.token();
-  const token = res.data?.token ?? null;
+  // SDK може кинути AuthApiError (напр., /token → 401, коли браузер не
+  // віддав сесійну cookie) — для нас це просто «токена немає», а не краш.
+  let token: string | null = null;
+  try {
+    const res = await authClient.token();
+    token = res.data?.token ?? null;
+  } catch {
+    token = null;
+  }
   if (!token) {
     cached = null;
     return null;

@@ -48,10 +48,8 @@ CLIENT_ORIGIN="http://localhost:5173"
 **client/.env**
 ```
 VITE_API_URL=http://localhost:3001
-# Same-origin шлях: Vite проксіює /neondb/auth на реальний хост Neon Auth,
-# щоб сесійна cookie була first-party (інакше Firefox/Safari її ріжуть).
-VITE_NEON_AUTH_URL=http://localhost:5173/neondb/auth
-NEON_AUTH_PROXY_TARGET=https://ep-xxx.neonauth.<region>.aws.neon.tech
+# Той самий хост, що й NEON_AUTH_JWKS_URL, але без /.well-known/jwks.json
+VITE_NEON_AUTH_URL=https://ep-xxx.neonauth.<region>.aws.neon.tech/neondb/auth
 ```
 
 ### 2. Встановлення

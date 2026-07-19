@@ -15,6 +15,8 @@ export class ApiError extends Error {
 
 async function send(path: string, init: RequestInit): Promise<Response> {
   const token = await getToken();
+  // Діагностика лише в dev-режимі (у прод-бандл не потрапляє).
+  if (import.meta.env.DEV) console.debug(token ? 'has token' : 'NO TOKEN', path);
   // Без токена запит не шлемо взагалі: сервер однаково відповість 401,
   // а «тихі» безтокенні запити і створювали шторм у Network.
   if (!token) throw new ApiError(401, 'Немає токена доступу — увійдіть у застосунок ще раз.');
