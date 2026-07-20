@@ -1,5 +1,5 @@
 import { clearTokenCache, getToken } from './auth';
-import { currentLocale } from '@/i18n';
+import i18n, { currentLocale } from '@/i18n';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -20,7 +20,7 @@ async function send(path: string, init: RequestInit): Promise<Response> {
   if (import.meta.env.DEV) console.debug(token ? 'has token' : 'NO TOKEN', path);
   // Без токена запит не шлемо взагалі: сервер однаково відповість 401,
   // а «тихі» безтокенні запити і створювали шторм у Network.
-  if (!token) throw new ApiError(401, 'Немає токена доступу — увійдіть у застосунок ще раз.');
+  if (!token) throw new ApiError(401, i18n.t('app.noToken'));
   return fetch(`${BASE}/api${path}`, {
     ...init,
     headers: {

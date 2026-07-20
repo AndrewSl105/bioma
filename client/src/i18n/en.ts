@@ -12,6 +12,7 @@ export const en: Dictionary = {
     admin: 'Admin',
     offlineBanner: 'You are offline — showing saved data',
     language: 'Language',
+    noToken: 'No access token — please sign in again.',
     loading: 'Loading…',
   },
   offline: {
