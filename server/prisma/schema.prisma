@@ -53,7 +53,8 @@ model UserProfile {
   panels        LabPanel[]
   documents     Document[]
   promResponses PromResponse[]
-  biomarkers    Biomarker[] // користувацькі (custom) біомаркери
+  biomarkers    Biomarker[] // історичні custom-біомаркери (нові не створюються)
+  selected      UserBiomarker[] // показники, обрані на дашборд
 }
 
 /// Категорія біомаркерів. Керується адміністратором в адмінці.
@@ -74,11 +75,24 @@ model BiomarkerCategory {
 }
 
 /// Тип аналізу / показник (напр. "Вітамін D (25-OH)", "Загальний холестерин").
-/// ownerId = null → глобальний каталог; інакше — власний біомаркер користувача.
+///
+/// Каталог належить системі: маркери заводить адміністратор, а користувач їх
+/// лише ОБИРАЄ собі на дашборд (див. UserBiomarker). Створювати власні
+/// показники користувач більше не може.
+///
+/// ownerId лишається nullable заради історичних custom-маркерів, заведених до
+/// цієї зміни; для всього нового ownerId = null.
 model Biomarker {
   id      String  @id @default(cuid())
   ownerId String?
   owner   UserProfile? @relation(fields: [ownerId], references: [userId], onDelete: Cascade)
+
+  /// Системний показник із загального каталогу — той, що видно всім у списку.
+  isSystem Boolean @default(false)
+
+  /// Хто завів показник: 'admin' для сіду, інакше userId адміністратора.
+  /// Не FK: адміна могли видалити, а маркер має пережити його.
+  createdBy String?
 
   slug String // напр. "vitamin-d", унікальний у межах власника
 
@@ -109,6 +123,7 @@ model Biomarker {
   referenceRanges ReferenceRange[]
   translations    BiomarkerTranslation[]
   results         LabResult[]
+  selectedBy      UserBiomarker[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -116,6 +131,28 @@ model Biomarker {
   @@unique([ownerId, slug])
   @@index([slug])
   @@index([categoryId])
+  @@index([isSystem])
+}
+
+/// Показник, який користувач обрав відстежувати — саме це наповнює дашборд.
+/// Картка з'являється одразу після вибору, ще до першого результату, тож у
+/// нового користувача дашборд порожній, поки він не додасть щось зі списку.
+///
+/// Рядок з'являється двома шляхами: явним вибором зі списку і автоматично при
+/// записі результату (ручному чи з фото) — інакше внесене значення не потрапило
+/// б на дашборд.
+model UserBiomarker {
+  userId String
+  user   UserProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  biomarkerId String
+  biomarker   Biomarker @relation(fields: [biomarkerId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([userId, biomarkerId])
+  @@index([userId])
+  @@index([biomarkerId])
 }
 
 /// Референсні межі. Можуть залежати від статі/віку.

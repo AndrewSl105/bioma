@@ -61,6 +61,12 @@ export const api = {
     request<Profile>('/profile', { method: 'PATCH', body: JSON.stringify(body) }),
   overview: () => request<OverviewCard[]>('/overview'),
   biomarkers: () => request<Biomarker[]>('/biomarkers'),
+  /** Додає показник із каталогу на дашборд. */
+  selectBiomarker: (slug: string) =>
+    request(`/biomarkers/${encodeURIComponent(slug)}/select`, { method: 'POST' }),
+  /** Прибирає показник із дашборда. Історія результатів лишається. */
+  deselectBiomarker: (slug: string) =>
+    request(`/biomarkers/${encodeURIComponent(slug)}/select`, { method: 'DELETE' }),
   history: (slug: string) => request<History>(`/results?biomarker=${encodeURIComponent(slug)}`),
   addResult: (body: AddResultBody) =>
     request('/results', { method: 'POST', body: JSON.stringify(body) }),
@@ -107,14 +113,20 @@ export interface Profile {
 }
 export interface UpdateProfileBody { sex?: Sex; birthDate?: string | null; }
 export type Flag = 'LOW' | 'NORMAL' | 'HIGH' | 'UNKNOWN';
+/**
+ * Картка дашборда. Дашборд будується з ОБРАНИХ показників, тож latest === null
+ * для щойно доданого показника, по якому ще немає жодного аналізу.
+ */
 export interface OverviewCard {
   biomarker: { slug: string; name: string; shortName: string | null; category: BiomarkerCategory | null; unit: string; precision: number };
-  latest: { value: number; unit: string; measuredAt: string; flag: Flag };
+  latest: { value: number; unit: string; measuredAt: string; flag: Flag } | null;
   reference: { low: number | null; high: number | null } | null;
   count: number;
 }
+/** Показник із системного каталогу. selected — чи він уже на дашборді. */
 export interface Biomarker {
   id: string; slug: string; name: string; shortName: string | null; unit: string; category: BiomarkerCategory | null;
+  selected: boolean;
 }
 export interface HistoryPoint {
   id: string; value: number; unit: string; measuredAt: string; flag: Flag; source: string; note: string | null;

@@ -251,19 +251,28 @@ export class AiService {
         sex: profile?.sex ?? undefined,
         ageYears,
       });
-      await this.prisma.labResult.create({
-        data: {
-          userId,
-          biomarkerId: biomarker.id,
-          value: item.value,
-          unit: item.unit ?? biomarker.unit,
-          measuredAt: new Date(body.takenAt),
-          flag: computeFlag(item.value, range ?? undefined),
-          source: ResultSource.AI_PHOTO,
-          rawText: item.rawText,
-          panelId: panel.id,
-        },
-      });
+      await this.prisma.$transaction([
+        this.prisma.labResult.create({
+          data: {
+            userId,
+            biomarkerId: biomarker.id,
+            value: item.value,
+            unit: item.unit ?? biomarker.unit,
+            measuredAt: new Date(body.takenAt),
+            flag: computeFlag(item.value, range ?? undefined),
+            source: ResultSource.AI_PHOTO,
+            rawText: item.rawText,
+            panelId: panel.id,
+          },
+        }),
+        // Дашборд будується з обраних показників — без цього рядка розпізнана
+        // з фото панель осіла б у базі, але на дашборді не з'явилася.
+        this.prisma.userBiomarker.upsert({
+          where: { userId_biomarkerId: { userId, biomarkerId: biomarker.id } },
+          update: {},
+          create: { userId, biomarkerId: biomarker.id },
+        }),
+      ]);
       created++;
     }
     return { panelId: panel.id, created };

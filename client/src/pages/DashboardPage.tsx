@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Camera, CloudOff, Plus, TrendingUp } from 'lucide-react';
+import { Camera, CloudOff, ListPlus, Plus, TrendingUp } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useOnline } from '@/lib/useOnline';
 import { OFFLINE_HINT, formatSyncedAt } from '@/lib/offline';
 import { Badge, Button, Card } from '@/components/ui/primitives';
 import { AddResultDialog } from '@/components/AddResultDialog';
+import { AddBiomarkerDialog } from '@/components/AddBiomarkerDialog';
 import { AiUploadDialog } from '@/components/AiUploadDialog';
 import { fmtDate, fmtNum, flagColor, flagLabel } from '@/lib/format';
 
@@ -43,6 +44,18 @@ export function DashboardPage() {
             впасти на відправці. Розпізнавання з фото — тим паче: воно
             виконується на сервері. */}
         <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
+          <AddBiomarkerDialog
+            trigger={
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                disabled={!online}
+                title={online ? undefined : OFFLINE_HINT}
+              >
+                <ListPlus size={17} /> Показник
+              </Button>
+            }
+          />
           <AiUploadDialog
             trigger={
               <Button
@@ -89,19 +102,34 @@ export function DashboardPage() {
         </Card>
       )}
 
+      {/* Дашборд наповнюють обрані показники, тож у нового користувача він
+          порожній. Головна дія тут — саме обрати показник зі списку. */}
       {!isLoading && cards?.length === 0 && (
         <Card className="p-10 text-center">
           <TrendingUp className="mx-auto mb-3 text-primary" />
           <p className="font-medium">Тут поки порожньо</p>
           <p className="mt-1 text-sm text-muted">
-            Додайте перше значення вручну або сфотографуйте бланк аналізів.
+            Оберіть показники, які хочете відстежувати, — потім додасте до них значення.
           </p>
+          <AddBiomarkerDialog
+            trigger={
+              <Button
+                className="mt-4"
+                disabled={!online}
+                title={online ? undefined : OFFLINE_HINT}
+              >
+                <ListPlus size={17} /> Обрати показники
+              </Button>
+            }
+          />
         </Card>
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards?.map((c, i) => {
-          const fc = flagColor(c.latest.flag);
+          // Показник щойно обрано зі списку, аналізів по ньому ще немає —
+          // картка є, але замість значення запрошуємо внести перше.
+          const fc = c.latest ? flagColor(c.latest.flag) : null;
           return (
             <motion.div
               key={c.biomarker.slug}
@@ -118,23 +146,37 @@ export function DashboardPage() {
                       )}
                       <h3 className="truncate font-medium">{c.biomarker.shortName ?? c.biomarker.name}</h3>
                     </div>
-                    <Badge className={`${fc.bg} ${fc.text}`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${fc.dot}`} />
-                      {flagLabel[c.latest.flag]}
-                    </Badge>
-                  </div>
-                  <div className="mt-4 flex items-baseline gap-1.5">
-                    <span className="tabnums font-display text-3xl font-bold">
-                      {fmtNum(c.latest.value, c.biomarker.precision)}
-                    </span>
-                    <span className="text-sm text-muted">{c.latest.unit}</span>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-xs text-muted">
-                    <span>{fmtDate(c.latest.measuredAt)}</span>
-                    {c.reference?.low != null && c.reference?.high != null && (
-                      <span>норма {c.reference.low}–{c.reference.high}</span>
+                    {c.latest && fc && (
+                      <Badge className={`${fc.bg} ${fc.text}`}>
+                        <span className={`h-1.5 w-1.5 rounded-full ${fc.dot}`} />
+                        {flagLabel[c.latest.flag]}
+                      </Badge>
                     )}
                   </div>
+                  {c.latest ? (
+                    <>
+                      <div className="mt-4 flex items-baseline gap-1.5">
+                        <span className="tabnums font-display text-3xl font-bold">
+                          {fmtNum(c.latest.value, c.biomarker.precision)}
+                        </span>
+                        <span className="text-sm text-muted">{c.latest.unit}</span>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between text-xs text-muted">
+                        <span>{fmtDate(c.latest.measuredAt)}</span>
+                        {c.reference?.low != null && c.reference?.high != null && (
+                          <span>норма {c.reference.low}–{c.reference.high}</span>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="mt-4 flex items-baseline gap-1.5">
+                        <span className="font-display text-3xl font-bold text-line">—</span>
+                        <span className="text-sm text-muted">{c.biomarker.unit}</span>
+                      </div>
+                      <div className="mt-2 text-xs text-muted">Ще немає значень</div>
+                    </>
+                  )}
                 </Card>
               </Link>
             </motion.div>

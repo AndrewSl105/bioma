@@ -8,6 +8,10 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
 });
 
+/// Автор системного каталогу. Не userId: маркери заводить не конкретна людина,
+/// а сід — і вони мусять пережити будь-якого адміністратора.
+const ADMIN_AUTHOR = 'admin';
+
 const PHQ9 = {
   slug: 'phq-9',
   title: 'PHQ-9 — самопочуття (2 тижні)',
@@ -64,7 +68,43 @@ function computeFlag(value: number, range?: CatalogRange): ResultFlag {
   return ResultFlag.NORMAL;
 }
 
-async function seedCatalog() {
+/// Slug категорії з англійського каноніка — тим самим правилом, що й міграція
+/// biomarker_categories, інакше сід наплодив би дублі вже наявних категорій.
+function categorySlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Категорії каталогу. Назву беремо українську (з i18n маркерів), бо саме її
+ * бачить користувач; sortOrder наявних категорій НЕ чіпаємо — порядок задає
+ * адміністратор в адмінці, і сід не має права його перезатирати.
+ */
+async function seedCategories() {
+  const ukByEn = new Map<string, string>();
+  for (const b of CATALOG) {
+    const uk = Object.values(b.i18n).find((t) => t.category)?.category;
+    if (uk && !ukByEn.has(b.category)) ukByEn.set(b.category, uk);
+  }
+
+  const idBySlug = new Map<string, string>();
+  let order = 0;
+  for (const en of [...new Set(CATALOG.map((c) => c.category))].sort()) {
+    order += 10;
+    const slug = categorySlug(en);
+    const category = await prisma.biomarkerCategory.upsert({
+      where: { slug },
+      update: { name: ukByEn.get(en) ?? en },
+      create: { slug, name: ukByEn.get(en) ?? en, sortOrder: order },
+    });
+    idBySlug.set(en, category.id);
+  }
+  return idBySlug;
+}
+
+async function seedCatalog(categoryIdByEn: Map<string, string>) {
   let created = 0;
   let translations = 0;
   for (const b of CATALOG) {
@@ -72,12 +112,19 @@ async function seedCatalog() {
     if (!biomarker) {
       biomarker = await prisma.biomarker.create({
         data: {
+          // Каталог належить системі: ownerId лишається порожнім, а автором
+          // проставляється адмін — користувач такі маркери лише обирає.
           ownerId: null,
+          isSystem: true,
+          createdBy: ADMIN_AUTHOR,
           slug: b.slug,
           loincCode: b.loincCode,
           canonicalName: b.canonicalName,
           canonicalShort: b.canonicalShort,
-          category: b.category,
+          // legacyCategory лишається джерелом істини для backfill, а зв'язок
+          // із BiomarkerCategory — те, за чим каталог сортується й групується.
+          legacyCategory: b.category,
+          categoryId: categoryIdByEn.get(b.category) ?? null,
           unit: b.unit,
           precision: b.precision ?? 2,
           bands: b.bands ?? undefined,
@@ -104,10 +151,13 @@ async function seedCatalog() {
       await prisma.biomarker.update({
         where: { id: biomarker.id },
         data: {
+          isSystem: true,
+          createdBy: ADMIN_AUTHOR,
           loincCode: b.loincCode,
           canonicalName: b.canonicalName,
           canonicalShort: b.canonicalShort,
-          category: b.category,
+          legacyCategory: b.category,
+          categoryId: categoryIdByEn.get(b.category) ?? null,
           unit: b.unit,
           precision: b.precision ?? 2,
           bands: b.bands ?? undefined,
@@ -196,18 +246,34 @@ async function seedPatient() {
     panelsCreated++;
     resultsCreated += created.results.length;
   }
-  return { userId, panelsCreated, resultsCreated, panelsSkipped };
+
+  // Дашборд будується з обраних показників, а не з результатів, тож демо-акаунту
+  // треба явно проставити вибір — інакше залиті панелі нікуди не потраплять.
+  // Обираємо рівно те, по чому є результати: дашборд лишається таким, як був.
+  const measured = await prisma.labResult.findMany({
+    where: { userId },
+    distinct: ['biomarkerId'],
+    select: { biomarkerId: true },
+  });
+  await prisma.userBiomarker.createMany({
+    data: measured.map((r) => ({ userId, biomarkerId: r.biomarkerId })),
+    skipDuplicates: true,
+  });
+
+  return { userId, panelsCreated, resultsCreated, panelsSkipped, selected: measured.length };
 }
 
 async function main() {
-  const c = await seedCatalog();
+  const categories = await seedCategories();
+  const c = await seedCatalog(categories);
   await prisma.promInstrument.upsert({
     where: { slug: PHQ9.slug },
     update: {},
     create: { slug: PHQ9.slug, title: PHQ9.title, description: PHQ9.description, schema: PHQ9.schema },
   });
   console.log(
-      `Каталог: +${c.created} біомаркерів (усього ${CATALOG.length}), ${c.translations} перекладів.\n` +
+      `Каталог: ${categories.size} категорій, +${c.created} біомаркерів ` +
+      `(усього ${CATALOG.length}, усі системні), ${c.translations} перекладів.\n` +
       `+1 PROM-опитувальник (PHQ-9).`,
   );
 
@@ -219,7 +285,8 @@ async function main() {
       : '';
   console.log(
       `Пацієнт ${p.userId}: +${p.panelsCreated} панелей, ` +
-      `+${p.resultsCreated} результатів на ${PATIENT_PANELS.length} дати${skipped}.`,
+      `+${p.resultsCreated} результатів на ${PATIENT_PANELS.length} дати${skipped}.\n` +
+      `Обрано показників на дашборд: ${p.selected}.`,
   );
 }
 

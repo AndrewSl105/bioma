@@ -74,7 +74,14 @@ export class ResultsService {
     };
   }
 
-  /** Останнє значення по кожному показнику (для дашборда). */
+  /**
+   * Дашборд — показники, які користувач обрав відстежувати.
+   *
+   * Джерело карток саме вибір, а не результати: обраний показник видно одразу,
+   * ще до першого аналізу (latest === null), тож людина бачить, що саме вона
+   * веде. Новий користувач нічого не обрав — дашборд порожній, поки він не
+   * додасть щось зі списку.
+   */
   async overview(userId: string) {
     // Профілю може ще не бути (перший вхід не завершився) — тоді стать/вік
     // невідомі, і референси добираються best-effort, без падіння.
@@ -83,55 +90,56 @@ export class ResultsService {
       ? Math.floor((Date.now() - profile.birthDate.getTime()) / 31557600000)
       : null;
 
-    const results = await this.prisma.labResult.findMany({
+    const selected = await this.prisma.userBiomarker.findMany({
       where: { userId },
-      orderBy: { measuredAt: 'desc' },
       include: { biomarker: { include: { referenceRanges: true, category: true } } },
+      // Порядок від категорії, а не від дати виміру: показники без результатів
+      // дати не мають, і сортувати весь дашборд за нею більше не можна.
+      orderBy: [
+        { biomarker: { category: { sortOrder: 'asc' } } },
+        { biomarker: { category: { name: 'asc' } } },
+        { biomarker: { canonicalName: 'asc' } },
+      ],
+    });
+    if (!selected.length) return [];
+
+    // Усі результати обраних показників одним запитом: по одному запиту на
+    // картку дашборд перетворився б на N+1.
+    const results = await this.prisma.labResult.findMany({
+      where: { userId, biomarkerId: { in: selected.map((s) => s.biomarkerId) } },
+      orderBy: { measuredAt: 'desc' },
     });
 
-    // Кількість вимірів на показник рахуємо один раз наперед: раніше це був
-    // .filter() усередині циклу, тобто O(n²) на кожен дашборд.
+    const latestByBiomarker = new Map<string, (typeof results)[number]>();
     const countByBiomarker = new Map<string, number>();
     for (const r of results) {
+      // results відсортовані за спаданням дати, тож перший побачений — останній.
+      if (!latestByBiomarker.has(r.biomarkerId)) latestByBiomarker.set(r.biomarkerId, r);
       countByBiomarker.set(r.biomarkerId, (countByBiomarker.get(r.biomarkerId) ?? 0) + 1);
     }
 
-    const seen = new Set<string>();
-    const cards: Array<{
-      biomarker: {
-        slug: string;
-        name: string;
-        shortName: string | null;
-        category: CategoryDto | null;
-        unit: string;
-        precision: number;
-      };
-      latest: { value: number; unit: string; measuredAt: Date; flag: string };
-      reference: { low: number | null; high: number | null } | null;
-      count: number;
-    }> = [];
-    for (const r of results) {
-      if (seen.has(r.biomarkerId)) continue;
-      seen.add(r.biomarkerId);
-      const range = pickRange(r.biomarker.referenceRanges, {
+    return selected.map(({ biomarker, biomarkerId }) => {
+      const latest = latestByBiomarker.get(biomarkerId) ?? null;
+      const range = pickRange(biomarker.referenceRanges, {
         sex: profile?.sex ?? undefined,
         ageYears,
       });
-      cards.push({
+      return {
         biomarker: {
-          slug: r.biomarker.slug,
-          name: r.biomarker.canonicalName,
-          shortName: r.biomarker.canonicalShort,
-          category: toCategoryDto(r.biomarker.category),
-          unit: r.biomarker.unit,
-          precision: r.biomarker.precision,
+          slug: biomarker.slug,
+          name: biomarker.canonicalName,
+          shortName: biomarker.canonicalShort,
+          category: toCategoryDto(biomarker.category) as CategoryDto | null,
+          unit: biomarker.unit,
+          precision: biomarker.precision,
         },
-        latest: { value: r.value, unit: r.unit, measuredAt: r.measuredAt, flag: r.flag },
+        latest: latest
+          ? { value: latest.value, unit: latest.unit, measuredAt: latest.measuredAt, flag: latest.flag }
+          : null,
         reference: range ? { low: range.low, high: range.high } : null,
-        count: countByBiomarker.get(r.biomarkerId) ?? 0,
-      });
-    }
-    return cards;
+        count: countByBiomarker.get(biomarkerId) ?? 0,
+      };
+    });
   }
 
   async create(userId: string, dto: CreateResultDto, source: ResultSource = ResultSource.MANUAL) {
@@ -153,18 +161,28 @@ export class ResultsService {
     });
     const flag = computeFlag(dto.value, range ?? undefined);
 
-    return this.prisma.labResult.create({
-      data: {
-        userId,
-        biomarkerId: biomarker.id,
-        value: dto.value,
-        unit: dto.unit ?? biomarker.unit,
-        measuredAt: new Date(dto.measuredAt),
-        note: dto.note,
-        flag,
-        source,
-      },
-    });
+    const [result] = await this.prisma.$transaction([
+      this.prisma.labResult.create({
+        data: {
+          userId,
+          biomarkerId: biomarker.id,
+          value: dto.value,
+          unit: dto.unit ?? biomarker.unit,
+          measuredAt: new Date(dto.measuredAt),
+          note: dto.note,
+          flag,
+          source,
+        },
+      }),
+      // Дашборд показує обрані показники, тож внесене значення по необраному
+      // маркеру просто не було б видно. Записав результат — показник обрано.
+      this.prisma.userBiomarker.upsert({
+        where: { userId_biomarkerId: { userId, biomarkerId: biomarker.id } },
+        update: {},
+        create: { userId, biomarkerId: biomarker.id },
+      }),
+    ]);
+    return result;
   }
 
   async remove(userId: string, id: string) {
