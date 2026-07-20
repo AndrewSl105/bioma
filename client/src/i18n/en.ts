@@ -42,6 +42,7 @@ export const en: Dictionary = {
     body: 'Body',
     intakes: 'Meds',
     wellbeing: 'Wellbeing',
+    profile: 'Profile',
   },
   body: {
     title: 'Body',
@@ -125,6 +126,25 @@ export const en: Dictionary = {
       mood: 'Mood',
       digestion: 'Digestion',
     },
+  },
+  profile: {
+    title: 'Profile',
+    subtitle: 'Context that shapes how your results are read',
+    basics: 'Basics',
+    basicsHint: 'Sex and age are needed to pick the right reference ranges.',
+    sex: 'Sex',
+    birthDate: 'Date of birth',
+    notSet: 'Not specified',
+    lifestyle: 'Lifestyle',
+    lifestyleHint:
+      'Optional. This is context, not a questionnaire: you can leave any field blank or remove an answer later.',
+    smoking: 'Smoking',
+    alcohol: 'Alcohol',
+    activity: 'Physical activity',
+    save: 'Save',
+    smokingValue: { NEVER: 'Never smoked', FORMER: 'Former smoker', CURRENT: 'Current smoker' },
+    alcoholValue: { NONE: 'None', OCCASIONAL: 'Occasional', REGULAR: 'Regular' },
+    activityValue: { SEDENTARY: 'Sedentary', LIGHT: 'Light', MODERATE: 'Moderate', HIGH: 'High' },
   },
   panels: {
     title: 'Panels',

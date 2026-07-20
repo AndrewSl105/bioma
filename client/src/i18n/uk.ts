@@ -42,6 +42,7 @@ export const uk = {
     body: 'Тіло',
     intakes: 'Ліки',
     wellbeing: 'Самопочуття',
+    profile: 'Профіль',
   },
   body: {
     title: 'Тіло',
@@ -125,6 +126,25 @@ export const uk = {
       mood: 'Настрій',
       digestion: 'Травлення',
     },
+  },
+  profile: {
+    title: 'Профіль',
+    subtitle: 'Контекст, від якого залежить трактування показників',
+    basics: 'Основне',
+    basicsHint: 'Стать і вік потрібні, щоб добирати правильні референсні межі.',
+    sex: 'Стать',
+    birthDate: 'Дата народження',
+    notSet: 'Не вказано',
+    lifestyle: 'Спосіб життя',
+    lifestyleHint:
+      'Необов’язково. Це контекст, а не анкета: будь-яке поле можна лишити порожнім або прибрати відповідь пізніше.',
+    smoking: 'Куріння',
+    alcohol: 'Алкоголь',
+    activity: 'Фізична активність',
+    save: 'Зберегти',
+    smokingValue: { NEVER: 'Ніколи не курив(ла)', FORMER: 'Курив(ла) раніше', CURRENT: 'Курю зараз' },
+    alcoholValue: { NONE: 'Не вживаю', OCCASIONAL: 'Іноді', REGULAR: 'Регулярно' },
+    activityValue: { SEDENTARY: 'Сидячий спосіб життя', LIGHT: 'Легка', MODERATE: 'Помірна', HIGH: 'Висока' },
   },
   panels: {
     title: 'Забори',

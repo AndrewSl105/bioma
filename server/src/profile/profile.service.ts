@@ -33,6 +33,9 @@ export class ProfileService {
       ...(dto.birthDate !== undefined
         ? { birthDate: dto.birthDate === null ? null : new Date(dto.birthDate) }
         : {}),
+      ...(dto.smokingStatus !== undefined ? { smokingStatus: dto.smokingStatus } : {}),
+      ...(dto.alcoholUse !== undefined ? { alcoholUse: dto.alcoholUse } : {}),
+      ...(dto.activityLevel !== undefined ? { activityLevel: dto.activityLevel } : {}),
     };
     return this.prisma.userProfile.upsert({
       where: { userId },

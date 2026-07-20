@@ -174,13 +174,28 @@ export interface BiomarkerCategory {
   imageUrl: string | null;
 }
 /** Наші поля користувача. Email/ім'я живуть у Neon Auth, не тут. */
+export type SmokingStatus = 'NEVER' | 'FORMER' | 'CURRENT';
+export type AlcoholUse = 'NONE' | 'OCCASIONAL' | 'REGULAR';
+export type ActivityLevel = 'SEDENTARY' | 'LIGHT' | 'MODERATE' | 'HIGH';
 export interface Profile {
   userId: string;
   sex: Sex | null;
   birthDate: string | null;
   locale: string;
+  heightCm: number | null;
+  /** Спосіб життя — контекст до трактування. null означає «не вказано». */
+  smokingStatus: SmokingStatus | null;
+  alcoholUse: AlcoholUse | null;
+  activityLevel: ActivityLevel | null;
 }
-export interface UpdateProfileBody { sex?: Sex; birthDate?: string | null; locale?: string; }
+export interface UpdateProfileBody {
+  sex?: Sex;
+  birthDate?: string | null;
+  locale?: string;
+  smokingStatus?: SmokingStatus | null;
+  alcoholUse?: AlcoholUse | null;
+  activityLevel?: ActivityLevel | null;
+}
 export type Flag = 'LOW' | 'NORMAL' | 'HIGH' | 'UNKNOWN';
 
 /**

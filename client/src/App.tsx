@@ -15,6 +15,7 @@ import { PanelPage } from './pages/PanelPage';
 import { BodyPage } from './pages/BodyPage';
 import { IntakesPage } from './pages/IntakesPage';
 import { WellbeingPage } from './pages/WellbeingPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { LoginPage } from './pages/LoginPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { RequireAdmin } from './pages/admin/RequireAdmin';
@@ -150,6 +151,7 @@ function AppShell() {
           <NavTab to="/body" label={t('nav.body')} />
           <NavTab to="/intakes" label={t('nav.intakes')} />
           <NavTab to="/wellbeing" label={t('nav.wellbeing')} />
+          <NavTab to="/profile" label={t('nav.profile')} />
         </nav>
 
         {/* Стан мережі: без нього offline виглядав би як «застосунок завис»
@@ -173,6 +175,7 @@ function AppShell() {
           <Route path="/body" element={<BodyPage />} />
           <Route path="/intakes" element={<IntakesPage />} />
           <Route path="/wellbeing" element={<WellbeingPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Routes>
       </main>
     </div>
