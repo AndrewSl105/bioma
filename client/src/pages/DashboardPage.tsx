@@ -114,7 +114,7 @@ export function DashboardPage() {
                   <div className="flex items-start justify-between">
                     <div className="min-w-0">
                       {c.biomarker.category && (
-                        <span className="text-[11px] uppercase tracking-wide text-muted">{c.biomarker.category}</span>
+                        <span className="truncate text-[11px] uppercase tracking-wide text-muted">{c.biomarker.category.name}</span>
                       )}
                       <h3 className="truncate font-medium">{c.biomarker.shortName ?? c.biomarker.name}</h3>
                     </div>

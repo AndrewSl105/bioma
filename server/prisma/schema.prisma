@@ -56,6 +56,23 @@ model UserProfile {
   biomarkers    Biomarker[] // користувацькі (custom) біомаркери
 }
 
+/// Категорія біомаркерів. Керується адміністратором в адмінці.
+/// Картинка лежить у Cloudflare R2; у БД зберігаємо лише ключ об'єкта,
+/// а публічний URL збирається з R2_PUBLIC_BASE_URL — щоб зміна домену
+/// чи бакета не вимагала переписувати рядки в базі.
+model BiomarkerCategory {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  name      String
+  imageKey  String?
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  biomarkers Biomarker[]
+}
+
 /// Тип аналізу / показник (напр. "Вітамін D (25-OH)", "Загальний холестерин").
 /// ownerId = null → глобальний каталог; інакше — власний біомаркер користувача.
 model Biomarker {
@@ -69,8 +86,19 @@ model Biomarker {
   canonicalName  String // "Vitamin D (25-OH)"
   canonicalShort String? // "Vitamin D"
 
-  unit        String // "нг/мл", "ммоль/л", "МО/мл"
-  category    String? // "Вітаміни", "Ліпідограма", "Гормони"
+  unit String // "нг/мл", "ммоль/л", "МО/мл"
+
+  /// Nullable свідомо: власні біомаркери користувача категорії не мають,
+  /// і робити її обов'язковою означало б зламати createCustom.
+  categoryId String?
+  category   BiomarkerCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  /// Стара довільна рядкова категорія. Лишається ЛИШЕ як джерело для
+  /// backfill і прибирається окремою міграцією, коли код перестане її
+  /// читати. Не використовувати в новому коді.
+  legacyCategory String? @map("category")
+
+  isActive    Boolean @default(true)
   loincCode   String? // код LOINC (для мапінгу з AI), опційно
   description String?
   precision   Int     @default(2) // к-сть знаків після коми
@@ -87,6 +115,7 @@ model Biomarker {
 
   @@unique([ownerId, slug])
   @@index([slug])
+  @@index([categoryId])
 }
 
 /// Референсні межі. Можуть залежати від статі/віку.

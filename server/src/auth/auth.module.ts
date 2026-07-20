@@ -1,10 +1,14 @@
 import { Global, Module } from '@nestjs/common';
+import { RoleService } from './role.service';
+import { AuthController } from './auth.controller';
 
 /**
- * Гард реєструється глобально в AppModule і власних залежностей не має
- * (у БД він більше не пише). Модуль лишається місцем для майбутніх
- * auth-провайдерів.
+ * Global: RoleService потрібен і гарду (AppModule), і адмінським модулям.
  */
 @Global()
-@Module({})
+@Module({
+  controllers: [AuthController],
+  providers: [RoleService],
+  exports: [RoleService],
+})
 export class AuthModule {}

@@ -3,6 +3,7 @@ import { ResultSource, Sex } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeFlag, pickRange } from '../biomarkers/reference.util';
 import { CreateResultDto } from './dto/create-result.dto';
+import { toCategoryDto, type CategoryDto } from '../r2/r2.url';
 
 @Injectable()
 export class ResultsService {
@@ -12,7 +13,7 @@ export class ResultsService {
   async history(userId: string, biomarkerSlug: string) {
     const biomarker = await this.prisma.biomarker.findFirst({
       where: { slug: biomarkerSlug, OR: [{ ownerId: null }, { ownerId: userId }] },
-      include: { referenceRanges: true },
+      include: { referenceRanges: true, category: true },
     });
     if (!biomarker) throw new NotFoundException('Біомаркер не знайдено');
 
@@ -54,7 +55,7 @@ export class ResultsService {
         name: biomarker.canonicalName,
         shortName: biomarker.canonicalShort,
         unit: biomarker.unit,
-        category: biomarker.category,
+        category: toCategoryDto(biomarker.category),
         precision: biomarker.precision,
       },
       reference: range
@@ -85,8 +86,15 @@ export class ResultsService {
     const results = await this.prisma.labResult.findMany({
       where: { userId },
       orderBy: { measuredAt: 'desc' },
-      include: { biomarker: { include: { referenceRanges: true } } },
+      include: { biomarker: { include: { referenceRanges: true, category: true } } },
     });
+
+    // Кількість вимірів на показник рахуємо один раз наперед: раніше це був
+    // .filter() усередині циклу, тобто O(n²) на кожен дашборд.
+    const countByBiomarker = new Map<string, number>();
+    for (const r of results) {
+      countByBiomarker.set(r.biomarkerId, (countByBiomarker.get(r.biomarkerId) ?? 0) + 1);
+    }
 
     const seen = new Set<string>();
     const cards: Array<{
@@ -94,7 +102,7 @@ export class ResultsService {
         slug: string;
         name: string;
         shortName: string | null;
-        category: string | null;
+        category: CategoryDto | null;
         unit: string;
         precision: number;
       };
@@ -114,13 +122,13 @@ export class ResultsService {
           slug: r.biomarker.slug,
           name: r.biomarker.canonicalName,
           shortName: r.biomarker.canonicalShort,
-          category: r.biomarker.category,
+          category: toCategoryDto(r.biomarker.category),
           unit: r.biomarker.unit,
           precision: r.biomarker.precision,
         },
         latest: { value: r.value, unit: r.unit, measuredAt: r.measuredAt, flag: r.flag },
         reference: range ? { low: range.low, high: range.high } : null,
-        count: results.filter((x) => x.biomarkerId === r.biomarkerId).length,
+        count: countByBiomarker.get(r.biomarkerId) ?? 0,
       });
     }
     return cards;

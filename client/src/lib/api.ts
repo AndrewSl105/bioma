@@ -49,6 +49,8 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
+  /** Нормалізований поточний користувач із роллю (джерело — Neon Auth). */
+  me: () => request<CurrentUser>('/auth/me'),
   /**
    * Створює UserProfile у нашій БД. Викликається один раз одразу після
    * логіну/реєстрації — саме це момент появи профілю. Ідемпотентно.
@@ -76,7 +78,27 @@ export const api = {
 };
 
 // ── типи ──
+export type UserRole = 'user' | 'admin';
+/**
+ * Роль приходить лише звідси. Тримати її у клієнтському стані як «джерело
+ * істини» не можна: це виключно про те, що показувати — кожен /api/admin/*
+ * маршрут перевіряє право сам.
+ */
+export interface CurrentUser {
+  userId: string;
+  email: string | null;
+  name: string | null;
+  role: UserRole;
+}
 export type Sex = 'MALE' | 'FEMALE' | 'ANY';
+
+/** Категорія біомаркера. imageUrl збирає бекенд з R2_PUBLIC_BASE_URL. */
+export interface BiomarkerCategory {
+  id: string;
+  slug: string;
+  name: string;
+  imageUrl: string | null;
+}
 /** Наші поля користувача. Email/ім'я живуть у Neon Auth, не тут. */
 export interface Profile {
   userId: string;
@@ -86,19 +108,19 @@ export interface Profile {
 export interface UpdateProfileBody { sex?: Sex; birthDate?: string | null; }
 export type Flag = 'LOW' | 'NORMAL' | 'HIGH' | 'UNKNOWN';
 export interface OverviewCard {
-  biomarker: { slug: string; name: string; shortName: string | null; category: string | null; unit: string; precision: number };
+  biomarker: { slug: string; name: string; shortName: string | null; category: BiomarkerCategory | null; unit: string; precision: number };
   latest: { value: number; unit: string; measuredAt: string; flag: Flag };
   reference: { low: number | null; high: number | null } | null;
   count: number;
 }
 export interface Biomarker {
-  id: string; slug: string; name: string; shortName: string | null; unit: string; category: string | null;
+  id: string; slug: string; name: string; shortName: string | null; unit: string; category: BiomarkerCategory | null;
 }
 export interface HistoryPoint {
   id: string; value: number; unit: string; measuredAt: string; flag: Flag; source: string; note: string | null;
 }
 export interface History {
-  biomarker: { slug: string; name: string; shortName: string | null; unit: string; category: string | null; precision: number };
+  biomarker: { slug: string; name: string; shortName: string | null; unit: string; category: BiomarkerCategory | null; precision: number };
   reference: { low: number | null; high: number | null; optimalLow: number | null; optimalHigh: number | null; unit: string; source: string | null } | null;
   latest: HistoryPoint | null;
   trend: number | null;

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
+import { RoleService, normalizeRole, type UserRole } from './role.service';
 
 export const IS_PUBLIC_KEY = 'isPublic';
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -19,6 +20,23 @@ export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
  */
 const DEV_BYPASS = process.env.AUTH_DEV_BYPASS === 'true';
 const DEV_USER = { userId: 'dev-user', email: 'dev@local.test', name: 'Dev User' };
+
+/**
+ * Роль dev-користувача. За замовчуванням 'user': dev-обхід не має мовчки
+ * робити адміністратора — щоб адмінські шляхи перевірялись свідомо
+ * (AUTH_DEV_ROLE=admin), а не «випадково працювали» в розробці.
+ */
+const DEV_ROLE: UserRole = normalizeRole(process.env.AUTH_DEV_ROLE);
+
+/**
+ * Обхід — суто інструмент розробки. У проді він означав би вхід без пароля,
+ * тож падаємо на старті, а не пускаємо запити повз автентифікацію.
+ */
+if (DEV_BYPASS && process.env.NODE_ENV === 'production') {
+  throw new Error(
+    'AUTH_DEV_BYPASS=true у production. Це повністю вимикає автентифікацію — приберіть змінну.',
+  );
+}
 
 /** Без JWKS-URL гард нічого не перевірить — падаємо одразу і зрозуміло. */
 function requireJwksUrl(): string {
@@ -34,11 +52,15 @@ function requireJwksUrl(): string {
 
 /**
  * Перевіряє JWT, виданий Neon Auth (Stack Auth), проти JWKS проєкту,
- * і кладе { userId, email, name } у request.user.
+ * і кладе { userId, email, name, role } у request.user.
  *
- * Свідомо НІЧОГО не пише в БД: гард не має залежати від наявності рядка
- * UserProfile. Профіль створюється явно при першому вході —
- * POST /api/profile/ensure.
+ * У БД свідомо нічого не ПИШЕ: гард не має залежати від наявності рядка
+ * UserProfile. Профіль створюється явно — POST /api/profile/ensure.
+ *
+ * Роль — єдине читання з БД, і воно навмисне: тримати AuthUser.role
+ * заповненим завжди безпечніше, ніж лишати поле напівпорожнім і сподіватись,
+ * що кожен контролер згадає про RolesGuard. Читання закешоване (60 с) і
+ * fail-closed, тож ані «курки з яйцем», ані 500 через нього не буває.
  */
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -46,7 +68,10 @@ export class AuthGuard implements CanActivate {
   // У dev-bypass режимі JWKS не потрібен (і NEON_AUTH_JWKS_URL може бути відсутнім).
   private jwks = DEV_BYPASS ? null : createRemoteJWKSet(new URL(requireJwksUrl()));
 
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    private roles: RoleService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
@@ -58,7 +83,7 @@ export class AuthGuard implements CanActivate {
     const req = context.switchToHttp().getRequest();
 
     if (DEV_BYPASS) {
-      req.user = { ...DEV_USER };
+      req.user = { ...DEV_USER, role: DEV_ROLE };
       return true;
     }
 
@@ -83,7 +108,11 @@ export class AuthGuard implements CanActivate {
     const email = (payload.email as string) ?? null;
     const name = (payload.name as string) ?? null;
 
-    req.user = { userId, email, name };
+    // Роль беремо з Neon Auth, а НЕ з claim'а: payload.role тут — це
+    // "authenticated", тобто роль Postgres для RLS, однакова в усіх.
+    const role = await this.roles.getRole(userId);
+
+    req.user = { userId, email, name, role };
     return true;
   }
 

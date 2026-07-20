@@ -61,7 +61,7 @@ export function BiomarkerPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div className="min-w-0">
           {biomarker.category && (
-            <span className="text-[11px] uppercase tracking-wide text-muted">{biomarker.category}</span>
+            <span className="block truncate text-[11px] uppercase tracking-wide text-muted">{biomarker.category.name}</span>
           )}
           <h1 className="font-display text-2xl font-bold tracking-tight">{biomarker.name}</h1>
         </div>
@@ -140,31 +140,52 @@ export function BiomarkerPage() {
         {series.slice().reverse().map((p) => {
           const f = flagColor(p.flag);
           return (
-            <div key={p.id} className="flex min-h-[3.25rem] items-center gap-3 px-4 py-2.5 sm:gap-4 sm:px-5 sm:py-3">
-              <div className="tabnums w-[4.5rem] shrink-0 font-display text-lg font-semibold sm:w-24">
-                {fmtNum(p.value, biomarker.precision)}
-                <span className="ml-1 text-xs font-normal text-muted">{p.unit}</span>
+            /* Мобільний макет — стовпчик, а не стиснений desktop-рядок:
+               1) значення + одиниця, кнопка видалення справа
+               2) дата
+               3) статус · джерело · нотатка
+               На sm:+ повертаємось до горизонтального рядка. */
+            <div
+              key={p.id}
+              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:gap-4 sm:px-5"
+            >
+              <div className="flex items-start justify-between gap-3 sm:contents">
+                {/* whitespace-nowrap тримає число і одиницю разом — саме тут
+                    вони й розривалися на вузьких екранах. Фіксованої ширини
+                    на мобільному немає: вона й підпирала дату. */}
+                <div className="tabnums whitespace-nowrap font-display text-lg font-semibold sm:w-24 sm:shrink-0">
+                  {fmtNum(p.value, biomarker.precision)}
+                  <span className="ml-1 text-xs font-normal text-muted">{p.unit}</span>
+                </div>
+
+                {/* Кнопка в першому рядку на мобільному, в кінці — на sm:+.
+                    order гарантує, що вона не опиниться між текстом. */}
+                <Button
+                  variant="ghost"
+                  aria-label="Видалити значення"
+                  className="h-11 w-11 shrink-0 p-0 sm:order-last"
+                  disabled={!online}
+                  title={online ? undefined : OFFLINE_HINT}
+                  onClick={() => del.mutate(p.id)}
+                >
+                  <Trash2 size={15} />
+                </Button>
               </div>
-              <div className="min-w-0 flex-1">
+
+              <div className="min-w-0 sm:flex-1">
                 <div className="text-sm">{fmtDate(p.measuredAt)}</div>
-                <div className="flex min-w-0 items-center gap-2 text-xs text-muted">
+                {/* flex-wrap + min-w-0: довга нотатка обрізається, а не
+                    виштовхує статус із рядка. */}
+                <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
                   <span className={`${f.text} shrink-0`}>{flagLabel[p.flag]}</span>
                   {p.source === 'AI_PHOTO' && (
-                    <span className="inline-flex shrink-0 items-center gap-1 text-primary"><Sparkles size={11} /> з фото</span>
+                    <span className="inline-flex shrink-0 items-center gap-1 text-primary">
+                      <Sparkles size={11} /> з фото
+                    </span>
                   )}
-                  {p.note && <span className="truncate">· {p.note}</span>}
+                  {p.note && <span className="min-w-0 basis-full truncate sm:basis-auto">· {p.note}</span>}
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                aria-label="Видалити значення"
-                className="h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-9"
-                disabled={!online}
-                title={online ? undefined : OFFLINE_HINT}
-                onClick={() => del.mutate(p.id)}
-              >
-                <Trash2 size={15} />
-              </Button>
             </div>
           );
         })}

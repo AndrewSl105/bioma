@@ -1,14 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Sex } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { toCategoryDto, type CategoryDto } from '../r2/r2.url';
 
 /** Локаль інтерфейсу — якою назвою віддавати біомаркер клієнту. */
 const UI_LOCALE = 'uk';
+
+type CategoryRelation = { id: string; slug: string; name: string; imageKey: string | null } | null;
 
 type WithTranslations = {
   canonicalName: string;
   canonicalShort: string | null;
   translations: { locale: string; name: string; shortName: string | null }[];
+  category?: CategoryRelation;
 };
 
 /**
@@ -17,11 +21,13 @@ type WithTranslations = {
  */
 function toDto<T extends WithTranslations>(b: T) {
   const t = b.translations.find((x) => x.locale === UI_LOCALE);
-  const { translations, ...rest } = b;
+  const { translations, category, ...rest } = b;
   return {
     ...rest,
     name: t?.name ?? b.canonicalName,
     shortName: t?.shortName ?? b.canonicalShort,
+    // Категорія — об'єкт, а не рядок: клієнту потрібні ще slug і картинка.
+    category: toCategoryDto(category) as CategoryDto | null,
   };
 }
 
@@ -32,9 +38,17 @@ export class BiomarkersService {
   /** Каталог: глобальні + власні біомаркери користувача. */
   async list(userId: string) {
     const rows = await this.prisma.biomarker.findMany({
-      where: { OR: [{ ownerId: null }, { ownerId: userId }] },
-      include: { referenceRanges: true, translations: true },
-      orderBy: [{ category: 'asc' }, { canonicalName: 'asc' }],
+      // Неактивні маркери зникають із каталогу, але наявні результати за
+      // ними лишаються — деактивація не є видаленням історії.
+      where: { isActive: true, OR: [{ ownerId: null }, { ownerId: userId }] },
+      include: { referenceRanges: true, translations: true, category: true },
+      // Категорії — за sortOrder (порядок задає адміністратор), маркери
+      // всередині — за канонічною назвою. Маркери без категорії — в кінці.
+      orderBy: [
+        { category: { sortOrder: 'asc' } },
+        { category: { name: 'asc' } },
+        { canonicalName: 'asc' },
+      ],
     });
     return rows.map(toDto);
   }
@@ -42,7 +56,7 @@ export class BiomarkersService {
   async findBySlug(userId: string, slug: string) {
     const biomarker = await this.prisma.biomarker.findFirst({
       where: { slug, OR: [{ ownerId: null }, { ownerId: userId }] },
-      include: { referenceRanges: true, translations: true },
+      include: { referenceRanges: true, translations: true, category: true },
     });
     if (!biomarker) throw new NotFoundException('Біомаркер не знайдено');
     return toDto(biomarker);
@@ -55,7 +69,7 @@ export class BiomarkersService {
       name: string;
       unit: string;
       shortName?: string;
-      category?: string;
+      categoryId?: string;
       precision?: number;
       referenceLow?: number;
       referenceHigh?: number;
@@ -71,7 +85,7 @@ export class BiomarkersService {
         canonicalName: data.name,
         canonicalShort: data.shortName,
         unit: data.unit,
-        category: data.category,
+        categoryId: data.categoryId ?? null,
         precision: data.precision ?? 2,
         referenceRanges:
           data.referenceLow != null || data.referenceHigh != null
@@ -85,7 +99,7 @@ export class BiomarkersService {
               }
             : undefined,
       },
-      include: { referenceRanges: true, translations: true },
+      include: { referenceRanges: true, translations: true, category: true },
     });
     return toDto(created);
   }
