@@ -4,6 +4,7 @@ import { PrismaClient, Sex, ResultFlag, ResultSource } from '../src/generated/pr
 import { CATALOG, CatalogRange } from './catalog';
 import { PATIENT_PANELS, PATIENT_PROFILE } from './patient-data';
 import { CATALOG_CONTENT, type BiomarkerInfoContent } from './catalog-content';
+import { CONTENT_TAXONOMY } from './content-taxonomy';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -193,7 +194,10 @@ async function seedContent() {
   });
   const idBySlug = new Map(dbBiomarkers.map((b) => [b.slug, b.id]));
 
-  const toRow = (c: BiomarkerInfoContent) => ({
+  // Ключі беремо за slug і кладемо в обидві локалі: вони мовно-незалежні.
+  const toRow = (c: BiomarkerInfoContent, slug: string) => ({
+    relatedSystemKeys: CONTENT_TAXONOMY[slug]?.systems ?? [],
+    functionalTagKeys: CONTENT_TAXONOMY[slug]?.functional ?? [],
     overview: c.overview ?? null,
     whatItMeasures: c.whatItMeasures ?? null,
     roleInBody: c.roleInBody ?? null,
@@ -230,13 +234,16 @@ async function seedContent() {
       }
       await prisma.biomarkerContent.upsert({
         where: { biomarkerId_locale: { biomarkerId, locale } },
-        update: toRow(content),
-        create: { biomarkerId, locale, ...toRow(content) },
+        update: toRow(content, slug),
+        create: { biomarkerId, locale, ...toRow(content, slug) },
       });
       upserts++;
     }
   }
-  return { upserts, skipped, brokenLinks: [...brokenLinks] };
+  const noKeys = Object.keys(CATALOG_CONTENT).filter(
+      (slug) => idBySlug.has(slug) && !CONTENT_TAXONOMY[slug],
+  );
+  return { upserts, skipped, brokenLinks: [...brokenLinks], noKeys };
 }
 
 async function seedPatient() {
@@ -346,6 +353,11 @@ async function main() {
           ? `, пропущено ${content.skipped.length} (немає в каталозі: ${content.skipped.join(', ')}).`
           : '.'),
   );
+  if (content.noKeys.length) {
+    console.warn(
+        `УВАГА: без ключів таксономії (чипи систем/функцій не з'являться): ${content.noKeys.join(', ')}`,
+    );
+  }
   if (content.brokenLinks.length) {
     console.warn(
         `УВАГА: посилання на маркери, яких немає в каталозі — на фронті вони не стануть ` +

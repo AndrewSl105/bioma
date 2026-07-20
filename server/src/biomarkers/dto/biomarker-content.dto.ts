@@ -2,12 +2,14 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsDateString,
+  IsIn,
   IsOptional,
   IsString,
   IsUrl,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+import { BODY_SYSTEM_KEYS, FUNCTIONAL_TAG_KEYS } from '../taxonomy';
 
 /** Медичне джерело: назва + посилання. */
 export class MedicalSourceDto {
@@ -38,6 +40,21 @@ export class BiomarkerContentDto {
 
   @IsOptional() @IsString() @MaxLength(SECTION) relatedSystems?: string;
   @IsOptional() @IsString() @MaxLength(SECTION) functionalLinks?: string;
+
+  /**
+   * Ключі таксономії. Валідуємо перелік: невідомий ключ клієнт не намалює
+   * (немає ні назви, ні іконки), тож пускати його в базу — значить завести
+   * дані, які нікому не видно.
+   */
+  @IsOptional()
+  @IsArray()
+  @IsIn(BODY_SYSTEM_KEYS as readonly string[], { each: true })
+  relatedSystemKeys?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsIn(FUNCTIONAL_TAG_KEYS as readonly string[], { each: true })
+  functionalTagKeys?: string[];
 
   @IsOptional() @IsString() @MaxLength(SECTION) lowMeaning?: string;
   @IsOptional() @IsString() @MaxLength(SECTION) highMeaning?: string;

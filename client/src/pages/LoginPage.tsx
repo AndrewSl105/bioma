@@ -6,8 +6,20 @@ import { Button, Card, Field, Input } from '@/components/ui/primitives';
 
 type Mode = 'signIn' | 'signUp';
 
+/** Google-логотип: у lucide брендових іконок немає, тож inline-SVG. */
+function GoogleMark() {
+  return (
+    <svg viewBox="0 0 48 48" className="h-[18px] w-[18px] shrink-0" aria-hidden>
+      <path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-2.8-.4-4H24v7.3h12.1c-.2 2-1.6 5-4.5 7l-.1.3 6.5 5 .5.1c4.1-3.8 6.6-9.4 6.6-15.7z" />
+      <path fill="#34A853" d="M24 46c5.9 0 10.9-1.9 14.5-5.3l-6.9-5.4c-1.9 1.3-4.4 2.2-7.6 2.2-5.8 0-10.7-3.8-12.5-9.900l-.3.1-6.7 5.2-.1.3C7.9 40.9 15.4 46 24 46z" />
+      <path fill="#FBBC05" d="M11.5 27.6c-.5-1.4-.7-2.9-.7-4.6s.3-3.2.7-4.6v-.3l-6.8-5.3-.2.1A22 22 0 0 0 2 23c0 3.5.9 6.9 2.5 9.9l7-5.3z" />
+      <path fill="#EB4335" d="M24 9.5c4.1 0 6.9 1.8 8.5 3.3l6.2-6C34.9 3.3 29.9 1 24 1 15.4 1 7.9 6.1 4.5 13.1l7 5.4C13.3 12.4 18.2 9.5 24 9.5z" />
+    </svg>
+  );
+}
+
 /**
- * Вхід / реєстрація через Neon Auth (email + пароль).
+ * Вхід / реєстрація через Neon Auth (email + пароль або Google).
  * Свідомо на власних примітивах, а не на готовому UI-кіті Neon —
  * той тягне окремий CSS-пресет і конфліктував би з дизайн-системою.
  */
@@ -20,6 +32,32 @@ export function LoginPage() {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [verifySent, setVerifySent] = useState(false);
+
+  /**
+   * Вхід через Google. Це редирект на провайдера й назад, тож pending з нього
+   * не знімаємо: успішний виклик забирає користувача зі сторінки, і скидання
+   * стану лише блимнуло б кнопкою перед самим переходом.
+   */
+  async function signInWithGoogle() {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      const res = await authClient.signIn.social({
+        provider: 'google',
+        // Повертаємось на поточний origin: у dev це localhost, у проді —
+        // домен застосунку, і хардкод тут ламав би одне з двох.
+        callbackURL: window.location.origin,
+      });
+      if (res.error) {
+        setError(res.error.message ?? t('login.googleFailed'));
+        setPending(false);
+      }
+    } catch {
+      setError(t('login.googleFailed'));
+      setPending(false);
+    }
+  }
 
   const canSubmit =
     email.trim() !== '' && password !== '' && (mode === 'signIn' || name.trim() !== '');
@@ -79,7 +117,24 @@ export function LoginPage() {
         {mode === 'signIn' ? t('login.signInSubtitle') : t('login.signUpSubtitle')}
       </p>
 
-      <form onSubmit={submit} className="mt-6 space-y-4">
+      <Button
+        type="button"
+        variant="outline"
+        className="mt-6 w-full"
+        disabled={pending}
+        onClick={() => void signInWithGoogle()}
+      >
+        <GoogleMark />
+        {t('login.withGoogle')}
+      </Button>
+
+      <div className="my-4 flex items-center gap-3">
+        <span className="h-px flex-1 bg-line" />
+        <span className="text-xs text-muted">{t('login.or')}</span>
+        <span className="h-px flex-1 bg-line" />
+      </div>
+
+      <form onSubmit={submit} className="space-y-4">
         {mode === 'signUp' && (
           <Field label={t('login.name')}>
             <Input

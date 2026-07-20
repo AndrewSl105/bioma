@@ -14,6 +14,14 @@ import {
 import { SUPPORTED_LOCALES, LOCALE_LABELS, type Locale } from '@/i18n';
 import { Button, Card, Field, Input } from '@/components/ui/primitives';
 import { Select } from '@/components/ui/Select';
+import {
+  BODY_SYSTEM_KEYS,
+  FUNCTIONAL_TAG_KEYS,
+  FunctionalIcon,
+  SystemIcon,
+  isBodySystemKey,
+  isFunctionalTagKey,
+} from '@/lib/taxonomy';
 import { cn } from '@/lib/cn';
 
 type Tab = 'main' | 'ranges' | 'content';
@@ -484,6 +492,25 @@ function ContentEditor({
       </p>
 
       {text('overview')}
+
+      {/* Ключі, а не текст: саме за ними малюються чипи з іконками на сторінці
+          показника. Проза нижче лишається підписом під ними. */}
+      <KeyPicker
+        label={t('content.relatedSystems')}
+        options={BODY_SYSTEM_KEYS}
+        selected={(state.relatedSystemKeys ?? []).filter(isBodySystemKey)}
+        onChange={(v) => setForm((p) => ({ ...p, relatedSystemKeys: v }))}
+        renderIcon={(k) => <SystemIcon name={k as never} />}
+        labelFor={(k) => t(`systems.${k}`)}
+      />
+      <KeyPicker
+        label={t('content.functionalLinks')}
+        options={FUNCTIONAL_TAG_KEYS}
+        selected={(state.functionalTagKeys ?? []).filter(isFunctionalTagKey)}
+        onChange={(v) => setForm((p) => ({ ...p, functionalTagKeys: v }))}
+        renderIcon={(k) => <FunctionalIcon name={k as never} />}
+        labelFor={(k) => t(`functional.${k}`)}
+      />
       {text('whatItMeasures')}
       {text('roleInBody')}
       {text('relatedSystems')}
@@ -503,6 +530,55 @@ function ContentEditor({
       <Button className="w-full" disabled={save.isPending} onClick={() => save.mutate(state)}>
         {save.isPending ? t('addResult.saving') : t('admin.saveContent')}
       </Button>
+    </div>
+  );
+}
+
+/**
+ * Мультиселект ключів таксономії. Чипи-перемикачі, а не список із чекбоксами:
+ * ключів десяток, і вигляд тут той самий, що й на сторінці показника — адмін
+ * одразу бачить результат, а не абстрактний перелік.
+ */
+function KeyPicker({
+  label,
+  options,
+  selected,
+  onChange,
+  renderIcon,
+  labelFor,
+}: {
+  label: string;
+  options: readonly string[];
+  selected: string[];
+  onChange: (next: string[]) => void;
+  renderIcon: (key: string) => React.ReactNode;
+  labelFor: (key: string) => string;
+}) {
+  return (
+    <div>
+      <span className="mb-1.5 block text-xs font-medium text-muted">{label}</span>
+      <div className="flex flex-wrap gap-2">
+        {options.map((k) => {
+          const on = selected.includes(k);
+          return (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={on}
+              onClick={() => onChange(on ? selected.filter((x) => x !== k) : [...selected, k])}
+              className={cn(
+                'inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors',
+                on
+                  ? 'bg-primary text-white'
+                  : 'bg-surface text-muted ring-1 ring-line hover:text-ink',
+              )}
+            >
+              {renderIcon(k)}
+              {labelFor(k)}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

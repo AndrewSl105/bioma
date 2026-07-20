@@ -341,6 +341,8 @@ function contentData(dto: BiomarkerContentDto, reviewedBy: string) {
     roleInBody: dto.roleInBody,
     relatedSystems: dto.relatedSystems,
     functionalLinks: dto.functionalLinks,
+    relatedSystemKeys: dto.relatedSystemKeys,
+    functionalTagKeys: dto.functionalTagKeys,
     lowMeaning: dto.lowMeaning,
     highMeaning: dto.highMeaning,
     influencingFactors: dto.influencingFactors,
@@ -367,6 +369,8 @@ type ContentRow = {
   roleInBody: string | null;
   relatedSystems: string | null;
   functionalLinks: string | null;
+  relatedSystemKeys: string[];
+  functionalTagKeys: string[];
   lowMeaning: string | null;
   highMeaning: string | null;
   influencingFactors: string | null;
@@ -402,6 +406,8 @@ function toContentDto(c: ContentRow) {
     roleInBody: c.roleInBody,
     relatedSystems: c.relatedSystems,
     functionalLinks: c.functionalLinks,
+    relatedSystemKeys: c.relatedSystemKeys,
+    functionalTagKeys: c.functionalTagKeys,
     lowMeaning: c.lowMeaning,
     highMeaning: c.highMeaning,
     influencingFactors: c.influencingFactors,

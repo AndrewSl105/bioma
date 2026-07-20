@@ -254,6 +254,9 @@ export interface BiomarkerContent {
   roleInBody: string | null;
   relatedSystems: string | null;
   functionalLinks: string | null;
+  /** Ключі таксономії — за ними малюються чипи з іконками. */
+  relatedSystemKeys: string[];
+  functionalTagKeys: string[];
   lowMeaning: string | null;
   highMeaning: string | null;
   influencingFactors: string | null;
