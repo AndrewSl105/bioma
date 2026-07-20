@@ -148,14 +148,39 @@ export interface Profile {
 }
 export interface UpdateProfileBody { sex?: Sex; birthDate?: string | null; locale?: string; }
 export type Flag = 'LOW' | 'NORMAL' | 'HIGH' | 'UNKNOWN';
+
+/**
+ * Зони інтерпретації. Прапорець лишається бінарним («у межах норми чи ні»), а
+ * зона додає градацію поверх нього — і саме її видно підписом на бейджі.
+ *
+ * zone обчислюється на сервері з Biomarker.bands і може бути null: у частини
+ * показників смуг просто немає (напр. ЛПВЩ), і тоді UI показує самий прапорець.
+ *
+ * label — авторський текст із каталогу («достатній», «ціль високого ризику»).
+ * Він наразі україномовний для всіх локалей: смуги зберігаються одним записом
+ * на показник, без перекладів. Рівень (level) мовно-незалежний, тож колір і
+ * доступна назва беруться саме з нього.
+ */
+export type BandLevel =
+  | 'DEFICIENT'
+  | 'LOW'
+  | 'BELOW_OPTIMAL'
+  | 'OPTIMAL'
+  | 'NORMAL'
+  | 'ABOVE_OPTIMAL'
+  | 'HIGH'
+  | 'VERY_HIGH'
+  | 'CRITICAL';
+export interface Zone { level: BandLevel; label: string }
+export interface Band { level: BandLevel; label: string; min?: number; max?: number }
 /**
  * Картка дашборда. Дашборд будується з ОБРАНИХ показників, тож latest === null
  * для щойно доданого показника, по якому ще немає жодного аналізу.
  */
 export interface OverviewCard {
   biomarker: { slug: string; name: string; shortName: string | null; category: BiomarkerCategory | null; unit: string; precision: number };
-  latest: { value: number; unit: string; measuredAt: string; flag: Flag } | null;
-  reference: { low: number | null; high: number | null } | null;
+  latest: { value: number; unit: string; measuredAt: string; flag: Flag; zone: Zone | null } | null;
+  reference: { low: number | null; high: number | null; optimalLow: number | null; optimalHigh: number | null } | null;
   count: number;
 }
 /** Показник із системного каталогу. selected — чи він уже на дашборді. */
@@ -164,10 +189,11 @@ export interface Biomarker {
   selected: boolean;
 }
 export interface HistoryPoint {
-  id: string; value: number; unit: string; measuredAt: string; flag: Flag; source: string; note: string | null;
+  id: string; value: number; unit: string; measuredAt: string; flag: Flag; zone: Zone | null; source: string; note: string | null;
 }
 export interface History {
   biomarker: { slug: string; name: string; shortName: string | null; unit: string; category: BiomarkerCategory | null; precision: number };
+  bands: Band[];
   reference: { low: number | null; high: number | null; optimalLow: number | null; optimalHigh: number | null; unit: string; source: string | null } | null;
   latest: HistoryPoint | null;
   trend: number | null;

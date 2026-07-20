@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { ResultSource, Sex } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeFlag, pickRange } from '../biomarkers/reference.util';
+import { computeZone, parseBands } from '../biomarkers/bands';
 import { CreateResultDto } from './dto/create-result.dto';
 import type { CategoryDto } from '../r2/r2.url';
 import type { Locale } from '../i18n/locale';
@@ -36,12 +37,19 @@ export class ResultsService {
       orderBy: { measuredAt: 'asc' },
     });
 
+    // Смуги розбираємо один раз на весь ряд: computeZone викликається на кожну
+    // точку, і парсити Json усередині map означало б робити це N разів.
+    const bands = parseBands(biomarker.bands);
+
     const series = results.map((r) => ({
       id: r.id,
       value: r.value,
       unit: r.unit,
       measuredAt: r.measuredAt,
       flag: r.flag,
+      // Зона на кожній точці, а не лише на останній: історія й графік
+      // підписують нею попередні виміри так само, як картка — поточний.
+      zone: computeZone(r.value, bands),
       source: r.source,
       note: r.note,
     }));
@@ -61,6 +69,9 @@ export class ResultsService {
         category: localizeCategory(biomarker.category, locale),
         precision: biomarker.precision,
       },
+      // Повний масив смуг потрібен графіку, щоб намалювати кольорові зони;
+      // самої зони останнього значення для цього не досить.
+      bands,
       reference: range
         ? {
             low: range.low,
@@ -131,6 +142,7 @@ export class ResultsService {
         sex: profile?.sex ?? undefined,
         ageYears,
       });
+      const bands = parseBands(biomarker.bands);
       return {
         biomarker: {
           slug: biomarker.slug,
@@ -142,9 +154,29 @@ export class ResultsService {
           precision: biomarker.precision,
         },
         latest: latest
-          ? { value: latest.value, unit: latest.unit, measuredAt: latest.measuredAt, flag: latest.flag }
+          ? {
+              value: latest.value,
+              unit: latest.unit,
+              measuredAt: latest.measuredAt,
+              flag: latest.flag,
+              // Бейдж картки підписується зоною («достатній»), а не лише
+              // «в нормі / поза нормою» — заради цього напрям і робиться.
+              zone: computeZone(latest.value, bands),
+            }
           : null,
-        reference: range ? { low: range.low, high: range.high } : null,
+        // Дашборд віддавав самі low/high, тож оптимум до картки не доходив,
+        // хоча в ReferenceRange він уже лежав.
+        reference: range
+          ? {
+              low: range.low,
+              high: range.high,
+              optimalLow: range.optimalLow,
+              optimalHigh: range.optimalHigh,
+            }
+          : null,
+        // Самі смуги дашборду не потрібні — графіка тут немає, а картці досить
+        // обчисленої зони. Возити їх на кожну картку означало б роздувати і
+        // відповідь, і persist-кеш заради даних, які ніхто не читає.
         count: countByBiomarker.get(biomarkerId) ?? 0,
       };
     });
