@@ -25,11 +25,25 @@ export function isSupportedLocale(value: unknown): value is Locale {
 
 /**
  * Поточна локаль поза React-деревом — потрібна в api.ts, який шле заголовок
- * X-Locale і не має доступу до хуків. Джерело те саме, що й в i18next.
+ * X-Locale і не має доступу до хуків.
+ *
+ * Джерело мусить збігатися з i18next, інакше застосунок говорить двома мовами
+ * одночасно: t() бере мову з детектора (?lang=, браузер), а X-Locale і формат
+ * дат ішли лише з localStorage. Поки користувач явно не обрав мову, localStorage
+ * порожній — і англомовний браузер отримував англійський інтерфейс, але
+ * українські назви показників і підписи зон із сервера.
+ *
+ * Порядок такий самий, як у детектора: явний вибір користувача важливіший за
+ * все, далі те, що визначив i18next, і лише потім мова за замовчуванням.
  */
 export function currentLocale(): Locale {
   const stored = localStorage.getItem(LOCALE_STORAGE_KEY);
-  return isSupportedLocale(stored) ? stored : DEFAULT_LOCALE;
+  if (isSupportedLocale(stored)) return stored;
+
+  // resolvedLanguage вже враховує load: 'languageOnly', тож 'en-GB' тут
+  // приходить як 'en'. До завершення init обидва поля порожні — тоді дефолт.
+  const detected = i18n.resolvedLanguage ?? i18n.language;
+  return isSupportedLocale(detected) ? detected : DEFAULT_LOCALE;
 }
 
 void i18n

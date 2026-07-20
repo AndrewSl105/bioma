@@ -25,8 +25,22 @@ export type BandLevel =
 /**
  * Смуга значень. min/max опційні: крайні смуги відкриті з одного боку
  * (найнижча має лише max, найвища — лише min).
+ *
+ * label — авторський підпис українською; він лишається КАНОНОМ і відкатом,
+ * рівно як canonicalName у самого маркера. labels додає переклади за локаллю.
+ *
+ * Переклади живуть тут, а не в BiomarkerContent, бо смуга — це поріг плюс його
+ * підпис, і рознести їх по двох моделях означало б з'єднувати назад на кожному
+ * читанні. Колонка bands і так Json, тож розширення форми не потребує міграції.
  */
-export type Band = { level: BandLevel; label: string; min?: number; max?: number };
+export type Band = {
+  level: BandLevel;
+  label: string;
+  /** { en: 'sufficient' } — локаль → підпис. Відсутня локаль відкочується на label. */
+  labels?: Record<string, string>;
+  min?: number;
+  max?: number;
+};
 
 export type Zone = { level: BandLevel; label: string };
 
@@ -50,20 +64,28 @@ const LEVELS: readonly BandLevel[] = [
  * мовчки відкидаємо биті: показник без зон має лишитися робочим (UI відкотиться
  * на прапорець), а не впасти на рендері.
  */
-export function parseBands(json: unknown): Band[] {
+export function parseBands(json: unknown, locale?: string): Band[] {
   if (!Array.isArray(json)) return [];
   const bands: Band[] = [];
   for (const raw of json) {
     if (!raw || typeof raw !== 'object') continue;
-    const { level, label, min, max } = raw as Record<string, unknown>;
+    const { level, label, labels, min, max } = raw as Record<string, unknown>;
     if (typeof level !== 'string' || !LEVELS.includes(level as BandLevel)) continue;
     if (typeof label !== 'string') continue;
     if (min !== undefined && typeof min !== 'number') continue;
     if (max !== undefined && typeof max !== 'number') continue;
     if (min === undefined && max === undefined) continue; // смуга без меж нічого не класифікує
+
+    // Переклад обраною мовою, інакше авторський підпис. Ланцюжок такий самий
+    // короткий, як у назв маркерів: локаль → канон, без проміжної мови.
+    const translated =
+      locale && labels && typeof labels === 'object' && !Array.isArray(labels)
+        ? (labels as Record<string, unknown>)[locale]
+        : undefined;
+
     bands.push({
       level: level as BandLevel,
-      label,
+      label: typeof translated === 'string' && translated.trim() ? translated : label,
       ...(typeof min === 'number' ? { min } : {}),
       ...(typeof max === 'number' ? { max } : {}),
     });
@@ -92,7 +114,22 @@ export function computeZone(value: number, bands: Band[]): Zone | null {
   return null;
 }
 
+/**
+ * Підставляє підписи потрібною мовою у ВЖЕ готові смуги.
+ *
+ * Потрібен там, де смуги описані в коді, а не лежать у Json (тілесні метрики):
+ * ланцюжок відкату має бути той самий, що й для маркерів, інакше половина
+ * застосунку локалізувалась би за іншими правилами.
+ */
+export function localizeBands(bands: Band[], locale?: string): Band[] {
+  if (!locale) return bands;
+  return bands.map((b) => {
+    const t = b.labels?.[locale];
+    return t && t.trim() ? { ...b, label: t } : b;
+  });
+}
+
 /** Зручний шорткат для місць, де на руках сирий Json із БД. */
-export function zoneFromJson(value: number, json: unknown): Zone | null {
-  return computeZone(value, parseBands(json));
+export function zoneFromJson(value: number, json: unknown, locale?: string): Zone | null {
+  return computeZone(value, parseBands(json, locale));
 }

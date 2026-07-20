@@ -43,17 +43,17 @@ const waistBands = (sex: Sex | null | undefined): Band[] => {
   if (sex !== 'MALE' && sex !== 'FEMALE') return [];
   const [increased, high] = sex === 'MALE' ? [94, 102] : [80, 88];
   return [
-    { level: 'OPTIMAL', label: 'у межах орієнтира', max: increased },
-    { level: 'ABOVE_OPTIMAL', label: 'підвищений ризик', min: increased, max: high },
-    { level: 'HIGH', label: 'значно підвищений ризик', min: high },
+    { level: 'OPTIMAL', label: 'у межах орієнтира', labels: { en: 'within guidance' }, max: increased },
+    { level: 'ABOVE_OPTIMAL', label: 'підвищений ризик', labels: { en: 'increased risk' }, min: increased, max: high },
+    { level: 'HIGH', label: 'значно підвищений ризик', labels: { en: 'substantially increased risk' }, min: high },
   ];
 };
 
 /** Пульс у спокої — загальноприйнятий орієнтир 60–100 уд/хв для дорослих. */
 const restingHrBands = (): Band[] => [
-  { level: 'LOW', label: 'нижче звичного діапазону', max: 60 },
-  { level: 'OPTIMAL', label: 'звичний діапазон', min: 60, max: 100 },
-  { level: 'HIGH', label: 'вище звичного діапазону', min: 100 },
+  { level: 'LOW', label: 'нижче звичного діапазону', labels: { en: 'below usual range' }, max: 60 },
+  { level: 'OPTIMAL', label: 'звичний діапазон', labels: { en: 'usual range' }, min: 60, max: 100 },
+  { level: 'HIGH', label: 'вище звичного діапазону', labels: { en: 'above usual range' }, min: 100 },
 ];
 
 /**
@@ -66,21 +66,21 @@ const restingHrBands = (): Band[] => [
  * шкалі означало б пороги, яких немає в жодній.
  */
 const systolicBands = (): Band[] => [
-  { level: 'OPTIMAL', label: 'оптимальний', max: 120 },
-  { level: 'NORMAL', label: 'нормальний', min: 120, max: 130 },
-  { level: 'ABOVE_OPTIMAL', label: 'високий нормальний', min: 130, max: 140 },
-  { level: 'HIGH', label: 'гіпертензія 1 ступеня', min: 140, max: 160 },
-  { level: 'VERY_HIGH', label: 'гіпертензія 2 ступеня', min: 160, max: 180 },
-  { level: 'CRITICAL', label: 'гіпертензія 3 ступеня', min: 180 },
+  { level: 'OPTIMAL', label: 'оптимальний', labels: { en: 'optimal' }, max: 120 },
+  { level: 'NORMAL', label: 'нормальний', labels: { en: 'normal' }, min: 120, max: 130 },
+  { level: 'ABOVE_OPTIMAL', label: 'високий нормальний', labels: { en: 'high normal' }, min: 130, max: 140 },
+  { level: 'HIGH', label: 'гіпертензія 1 ступеня', labels: { en: 'grade 1 hypertension' }, min: 140, max: 160 },
+  { level: 'VERY_HIGH', label: 'гіпертензія 2 ступеня', labels: { en: 'grade 2 hypertension' }, min: 160, max: 180 },
+  { level: 'CRITICAL', label: 'гіпертензія 3 ступеня', labels: { en: 'grade 3 hypertension' }, min: 180 },
 ];
 
 const diastolicBands = (): Band[] => [
-  { level: 'OPTIMAL', label: 'оптимальний', max: 80 },
-  { level: 'NORMAL', label: 'нормальний', min: 80, max: 85 },
-  { level: 'ABOVE_OPTIMAL', label: 'високий нормальний', min: 85, max: 90 },
-  { level: 'HIGH', label: 'гіпертензія 1 ступеня', min: 90, max: 100 },
-  { level: 'VERY_HIGH', label: 'гіпертензія 2 ступеня', min: 100, max: 110 },
-  { level: 'CRITICAL', label: 'гіпертензія 3 ступеня', min: 110 },
+  { level: 'OPTIMAL', label: 'оптимальний', labels: { en: 'optimal' }, max: 80 },
+  { level: 'NORMAL', label: 'нормальний', labels: { en: 'normal' }, min: 80, max: 85 },
+  { level: 'ABOVE_OPTIMAL', label: 'високий нормальний', labels: { en: 'high normal' }, min: 85, max: 90 },
+  { level: 'HIGH', label: 'гіпертензія 1 ступеня', labels: { en: 'grade 1 hypertension' }, min: 90, max: 100 },
+  { level: 'VERY_HIGH', label: 'гіпертензія 2 ступеня', labels: { en: 'grade 2 hypertension' }, min: 100, max: 110 },
+  { level: 'CRITICAL', label: 'гіпертензія 3 ступеня', labels: { en: 'grade 3 hypertension' }, min: 110 },
 ];
 
 export const BODY_METRICS: Record<BodyMetricKind, BodyMetricDef> = {
@@ -102,10 +102,10 @@ export const BODY_METRICS: Record<BodyMetricKind, BodyMetricDef> = {
 
 /** Похідний ІМТ, категорії ВООЗ. Не зберігається — рахується з ваги і зросту. */
 export const BMI_BANDS: Band[] = [
-  { level: 'LOW', label: 'недостатня вага', max: 18.5 },
-  { level: 'OPTIMAL', label: 'норма', min: 18.5, max: 25 },
-  { level: 'ABOVE_OPTIMAL', label: 'надмірна вага', min: 25, max: 30 },
-  { level: 'HIGH', label: 'ожиріння', min: 30 },
+  { level: 'LOW', label: 'недостатня вага', labels: { en: 'underweight' }, max: 18.5 },
+  { level: 'OPTIMAL', label: 'норма', labels: { en: 'normal' }, min: 18.5, max: 25 },
+  { level: 'ABOVE_OPTIMAL', label: 'надмірна вага', labels: { en: 'overweight' }, min: 25, max: 30 },
+  { level: 'HIGH', label: 'ожиріння', labels: { en: 'obesity' }, min: 30 },
 ];
 
 export const BMI_DEF = { key: 'bmi', unit: 'кг/м²', precision: 1 };

@@ -125,7 +125,7 @@ export class PanelsService {
     const collator = new Intl.Collator(locale);
     const rows = [...byBiomarker.values()]
       .map(({ biomarker, a: ra, b: rb }) => {
-        const bands = parseBands(biomarker.bands);
+        const bands = parseBands(biomarker.bands, locale);
         const range = pickRange(biomarker.referenceRanges, ctx);
         const side = (r?: (typeof a.results)[number]) =>
           r
@@ -205,7 +205,7 @@ export class PanelsService {
     locale: Locale,
   ) {
     const range = pickRange(r.biomarker.referenceRanges, ctx);
-    const zone: Zone | null = computeZone(r.value, parseBands(r.biomarker.bands));
+    const zone: Zone | null = computeZone(r.value, parseBands(r.biomarker.bands, locale));
     return {
       id: r.id,
       value: r.value,

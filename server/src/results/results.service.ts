@@ -41,7 +41,7 @@ export class ResultsService {
 
     // Смуги розбираємо один раз на весь ряд: computeZone викликається на кожну
     // точку, і парсити Json усередині map означало б робити це N разів.
-    const bands = parseBands(biomarker.bands);
+    const bands = parseBands(biomarker.bands, locale);
 
     const series = results.map((r) => ({
       id: r.id,
@@ -144,7 +144,7 @@ export class ResultsService {
         sex: profile?.sex ?? undefined,
         ageYears,
       });
-      const bands = parseBands(biomarker.bands);
+      const bands = parseBands(biomarker.bands, locale);
       return {
         biomarker: {
           slug: biomarker.slug,

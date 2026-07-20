@@ -1,9 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { computeZone, type Band, type Zone } from '../biomarkers/bands';
+import { computeZone, localizeBands, type Band, type Zone } from '../biomarkers/bands';
 import type { BodyMetricKind, Sex } from '../generated/prisma/enums';
 import { BMI_BANDS, BMI_DEF, BODY_METRICS, BP_KINDS } from './body.catalog';
 import type { CreateBodyMetricDto, CreateBloodPressureDto } from './dto/body.dto';
+import type { Locale } from '../i18n/locale';
 
 /**
  * Тілесні метрики: вага, талія, пульс у спокої, тиск. Плюс похідний ІМТ.
@@ -16,15 +17,15 @@ export class BodyService {
   constructor(private prisma: PrismaService) {}
 
   /** Смуги під стать користувача (талія залежить від неї). */
-  private bandsFor(kind: BodyMetricKind, sex: Sex | null | undefined): Band[] {
-    return BODY_METRICS[kind].bands?.(sex) ?? [];
+  private bandsFor(kind: BodyMetricKind, sex: Sex | null | undefined, locale?: Locale): Band[] {
+    return localizeBands(BODY_METRICS[kind].bands?.(sex) ?? [], locale);
   }
 
   /**
    * Зведення: останнє значення кожної метрики, тиск однією карткою, ІМТ
    * похідним. Саме те, що показує екран «Тіло».
    */
-  async overview(userId: string) {
+  async overview(userId: string, locale?: Locale) {
     const profile = await this.prisma.userProfile.findUnique({ where: { userId } });
     const sex = profile?.sex ?? null;
 
@@ -50,13 +51,13 @@ export class BodyService {
         key: def.key,
         unit: def.unit,
         precision: def.precision,
-        bands: this.bandsFor(kind, sex),
+        bands: this.bandsFor(kind, sex, locale),
         latest: last
           ? {
               id: last.id,
               value: last.value,
               measuredAt: last.measuredAt,
-              zone: computeZone(last.value, this.bandsFor(kind, sex)),
+              zone: computeZone(last.value, this.bandsFor(kind, sex, locale)),
             }
           : null,
         count: counts.get(kind) ?? 0,
@@ -71,8 +72,8 @@ export class BodyService {
       // Прості метрики — вага, талія, пульс. Тиск і ІМТ подаються окремо:
       // перший склеюється з двох рядків, другий не зберігається взагалі.
       metrics: (['WEIGHT', 'WAIST', 'RESTING_HR'] as BodyMetricKind[]).map(metric),
-      bloodPressure: this.pairBloodPressure(systolic, diastolic, sex),
-      bmi: this.deriveBmi(profile?.heightCm ?? null, latest.get('WEIGHT') ?? null),
+      bloodPressure: this.pairBloodPressure(systolic, diastolic, sex, locale),
+      bmi: this.deriveBmi(profile?.heightCm ?? null, latest.get('WEIGHT') ?? null, locale),
     };
   }
 
@@ -87,11 +88,12 @@ export class BodyService {
     systolic: { value: number; measuredAt: Date } | undefined,
     diastolic: { value: number; measuredAt: Date } | undefined,
     sex: Sex | null,
+    locale?: Locale,
   ) {
     if (!systolic || !diastolic) return null;
 
-    const sysBands = this.bandsFor('BP_SYSTOLIC', sex);
-    const diaBands = this.bandsFor('BP_DIASTOLIC', sex);
+    const sysBands = this.bandsFor('BP_SYSTOLIC', sex, locale);
+    const diaBands = this.bandsFor('BP_DIASTOLIC', sex, locale);
     const sysIdx = sysBands.findIndex((b) => this.inBand(systolic.value, b));
     const diaIdx = diaBands.findIndex((b) => this.inBand(diastolic.value, b));
 
@@ -125,7 +127,11 @@ export class BodyService {
    * ІМТ = вага / зріст². Похідний і НЕ зберігається: інакше вага, зріст і ІМТ
    * розходилися б між собою при кожній правці ваги.
    */
-  private deriveBmi(heightCm: number | null, weight: { value: number; measuredAt: Date } | null) {
+  private deriveBmi(
+    heightCm: number | null,
+    weight: { value: number; measuredAt: Date } | null,
+    locale?: Locale,
+  ) {
     if (!heightCm || !weight) return null;
     const m = heightCm / 100;
     const value = +(weight.value / (m * m)).toFixed(BMI_DEF.precision);
@@ -137,20 +143,20 @@ export class BodyService {
       // Дата — саме зважування: ІМТ не «виміряний сьогодні», він настільки ж
       // свіжий, наскільки свіжа вага, з якої порахований.
       measuredAt: weight.measuredAt,
-      bands: BMI_BANDS,
-      zone: computeZone(value, BMI_BANDS),
+      bands: localizeBands(BMI_BANDS, locale),
+      zone: computeZone(value, localizeBands(BMI_BANDS, locale)),
       /** UI ховає ручне введення для похідних метрик. */
       derived: true as const,
     };
   }
 
   /** Історія однієї метрики — для графіка. */
-  async history(userId: string, kind: BodyMetricKind) {
+  async history(userId: string, kind: BodyMetricKind, locale?: Locale) {
     const def = BODY_METRICS[kind];
     if (!def) throw new BadRequestException('Невідома метрика');
 
     const profile = await this.prisma.userProfile.findUnique({ where: { userId } });
-    const bands = this.bandsFor(kind, profile?.sex ?? null);
+    const bands = this.bandsFor(kind, profile?.sex ?? null, locale);
 
     const rows = await this.prisma.bodyMetric.findMany({
       where: { userId, kind },

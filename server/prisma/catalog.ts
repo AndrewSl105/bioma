@@ -63,8 +63,8 @@ export const CATALOG: CatalogEntry[] = [
         i18n: uk('Загальний холестерин', 'Холестерин', 'Ліпідограма'),
         ranges: [{ high: 5.2, source: 'ESC 2016' }],
         bands: [
-            { level: 'OPTIMAL', label: 'загальна популяція', max: 5.2 },
-            { level: 'HIGH', label: 'підвищений', min: 5.2 },
+            { level: 'OPTIMAL', label: 'загальна популяція', labels: { en: 'general population' }, max: 5.2 },
+            { level: 'HIGH', label: 'підвищений', labels: { en: 'elevated' }, min: 5.2 },
         ],
     },
     {
@@ -77,11 +77,11 @@ export const CATALOG: CatalogEntry[] = [
         i18n: uk('Холестерин ЛПНЩ (LDL)', 'ЛПНЩ', 'Ліпідограма'),
         ranges: [{ high: 3.0, source: 'ESC/EAS 2019' }],
         bands: [
-            { level: 'OPTIMAL', label: 'ціль дуже високого ризику', max: 1.4 },
-            { level: 'NORMAL', label: 'ціль високого ризику', min: 1.4, max: 1.8 },
-            { level: 'ABOVE_OPTIMAL', label: 'ціль помірного ризику', min: 1.8, max: 2.6 },
-            { level: 'HIGH', label: 'ціль низького ризику', min: 2.6, max: 3.0 },
-            { level: 'VERY_HIGH', label: 'вище цілі', min: 3.0 },
+            { level: 'OPTIMAL', label: 'ціль дуже високого ризику', labels: { en: 'very high risk target' }, max: 1.4 },
+            { level: 'NORMAL', label: 'ціль високого ризику', labels: { en: 'high risk target' }, min: 1.4, max: 1.8 },
+            { level: 'ABOVE_OPTIMAL', label: 'ціль помірного ризику', labels: { en: 'moderate risk target' }, min: 1.8, max: 2.6 },
+            { level: 'HIGH', label: 'ціль низького ризику', labels: { en: 'low risk target' }, min: 2.6, max: 3.0 },
+            { level: 'VERY_HIGH', label: 'вище цілі', labels: { en: 'above target' }, min: 3.0 },
         ],
     },
     {
@@ -106,11 +106,11 @@ export const CATALOG: CatalogEntry[] = [
         i18n: uk('Холестерин не-ЛПВЩ', 'не-ЛПВЩ', 'Ліпідограма'),
         ranges: [{ high: 3.8, source: 'ESC/EAS 2019' }],
         bands: [
-            { level: 'OPTIMAL', label: 'ціль дуже високого ризику', max: 2.2 },
-            { level: 'NORMAL', label: 'ціль високого ризику', min: 2.2, max: 2.6 },
-            { level: 'ABOVE_OPTIMAL', label: 'ціль помірного ризику', min: 2.6, max: 3.4 },
-            { level: 'HIGH', label: 'ціль низького ризику', min: 3.4, max: 3.8 },
-            { level: 'VERY_HIGH', label: 'вище цілі', min: 3.8 },
+            { level: 'OPTIMAL', label: 'ціль дуже високого ризику', labels: { en: 'very high risk target' }, max: 2.2 },
+            { level: 'NORMAL', label: 'ціль високого ризику', labels: { en: 'high risk target' }, min: 2.2, max: 2.6 },
+            { level: 'ABOVE_OPTIMAL', label: 'ціль помірного ризику', labels: { en: 'moderate risk target' }, min: 2.6, max: 3.4 },
+            { level: 'HIGH', label: 'ціль низького ризику', labels: { en: 'low risk target' }, min: 3.4, max: 3.8 },
+            { level: 'VERY_HIGH', label: 'вище цілі', labels: { en: 'above target' }, min: 3.8 },
         ],
     },
     {
@@ -293,9 +293,9 @@ export const CATALOG: CatalogEntry[] = [
         i18n: uk('Глюкоза (натще)', 'Глюкоза', 'Вуглеводний обмін'),
         ranges: [{ low: 4.0, high: 5.5, source: 'МОЗ №1300, 2024' }],
         bands: [
-            { level: 'NORMAL', label: 'норма', min: 4.0, max: 5.5 },
-            { level: 'ABOVE_OPTIMAL', label: 'предіабет', min: 5.6, max: 6.9 },
-            { level: 'HIGH', label: 'діабет', min: 7.0 },
+            { level: 'NORMAL', label: 'норма', labels: { en: 'normal' }, min: 4.0, max: 5.5 },
+            { level: 'ABOVE_OPTIMAL', label: 'предіабет', labels: { en: 'prediabetes' }, min: 5.6, max: 6.9 },
+            { level: 'HIGH', label: 'діабет', labels: { en: 'diabetes' }, min: 7.0 },
         ],
     },
     {
@@ -309,9 +309,9 @@ export const CATALOG: CatalogEntry[] = [
         i18n: uk('Глікований гемоглобін (HbA1c)', 'HbA1c', 'Вуглеводний обмін'),
         ranges: [{ low: 4.5, high: 5.6 }],
         bands: [
-            { level: 'NORMAL', label: 'норма', max: 5.7 },
-            { level: 'ABOVE_OPTIMAL', label: 'предіабет', min: 5.7, max: 6.4 },
-            { level: 'HIGH', label: 'діабет', min: 6.5 },
+            { level: 'NORMAL', label: 'норма', labels: { en: 'normal' }, max: 5.7 },
+            { level: 'ABOVE_OPTIMAL', label: 'предіабет', labels: { en: 'prediabetes' }, min: 5.7, max: 6.4 },
+            { level: 'HIGH', label: 'діабет', labels: { en: 'diabetes' }, min: 6.5 },
         ],
     },
     {
@@ -403,12 +403,12 @@ export const CATALOG: CatalogEntry[] = [
         i18n: uk('25-гідроксивітамін D', 'Вітамін D', 'Вітаміни'),
         ranges: [{ low: 75, high: 125, source: 'Консенсус, Україна 2023' }],
         bands: [
-            { level: 'DEFICIENT', label: 'дефіцит', max: 50 },
-            { level: 'LOW', label: 'недостатність', min: 50, max: 75 },
-            { level: 'OPTIMAL', label: 'достатній', min: 75, max: 125 },
-            { level: 'ABOVE_OPTIMAL', label: 'безпечний, не цільовий', min: 125, max: 150 },
-            { level: 'HIGH', label: 'зона невизначеності', min: 150, max: 250 },
-            { level: 'CRITICAL', label: 'надлишок / токсичність', min: 250 },
+            { level: 'DEFICIENT', label: 'дефіцит', labels: { en: 'deficiency' }, max: 50 },
+            { level: 'LOW', label: 'недостатність', labels: { en: 'insufficiency' }, min: 50, max: 75 },
+            { level: 'OPTIMAL', label: 'достатній', labels: { en: 'sufficient' }, min: 75, max: 125 },
+            { level: 'ABOVE_OPTIMAL', label: 'безпечний, не цільовий', labels: { en: 'safe, not a target' }, min: 125, max: 150 },
+            { level: 'HIGH', label: 'зона невизначеності', labels: { en: 'uncertain range' }, min: 150, max: 250 },
+            { level: 'CRITICAL', label: 'надлишок / токсичність', labels: { en: 'excess / toxicity' }, min: 250 },
         ],
     },
     {
@@ -422,9 +422,9 @@ export const CATALOG: CatalogEntry[] = [
         i18n: uk('Вітамін B12 (ціанокобаламін)', 'Вітамін B12', 'Вітаміни'),
         ranges: [{ low: 180, high: 914 }],
         bands: [
-            { level: 'DEFICIENT', label: 'дефіцит', max: 145 },
-            { level: 'LOW', label: 'недостатній рівень', min: 145, max: 180 },
-            { level: 'NORMAL', label: 'достатній рівень', min: 180, max: 914 },
+            { level: 'DEFICIENT', label: 'дефіцит', labels: { en: 'deficiency' }, max: 145 },
+            { level: 'LOW', label: 'недостатній рівень', labels: { en: 'insufficient level' }, min: 145, max: 180 },
+            { level: 'NORMAL', label: 'достатній рівень', labels: { en: 'sufficient level' }, min: 180, max: 914 },
         ],
     },
     {
