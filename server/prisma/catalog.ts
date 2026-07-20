@@ -179,6 +179,39 @@ export const CATALOG: CatalogEntry[] = [
         i18n: uk('Тироксин вільний (Т4 вільний)', 'Т4 вільний', 'Щитоподібна залоза'),
         ranges: [{ low: 0.61, high: 1.47 }],
     },
+    // Тиреоїдні антитіла. LOINC свідомо не проставлено: коди не звірені, а
+    // вгаданий код гірший за його відсутність — на нього спирається мапінг з AI.
+    {
+        slug: 'anti-tpo',
+        unit: 'МО/мл',
+        precision: 2,
+        category: 'Thyroid',
+        canonicalName: 'Thyroid Peroxidase Antibodies',
+        canonicalShort: 'anti-TPO',
+        i18n: uk('Антитіла до тиреопероксидази (АТПО)', 'АТПО', 'Щитоподібна залоза'),
+        // Негативний, якщо нижче порога; поріг з бланка «ДІЛА».
+        ranges: [{ high: 9.0 }],
+    },
+    {
+        slug: 'anti-tg',
+        unit: 'МО/мл',
+        precision: 2,
+        category: 'Thyroid',
+        canonicalName: 'Thyroglobulin Antibodies',
+        canonicalShort: 'anti-Tg',
+        i18n: uk('Антитіла до тиреоглобуліну (АТТГ)', 'АТТГ', 'Щитоподібна залоза'),
+        ranges: [{ high: 4.0 }],
+    },
+    {
+        slug: 'tsh-receptor-ab',
+        unit: 'Од/л',
+        precision: 2,
+        category: 'Thyroid',
+        canonicalName: 'TSH Receptor Antibodies (stimulating)',
+        canonicalShort: 'TRAb',
+        i18n: uk('Антитіла до рецепторів ТТГ (стимулюючі)', 'АТ-р-ТТГ', 'Щитоподібна залоза'),
+        ranges: [{ high: 0.55 }],
+    },
 
     // ─────────────── Статеві гормони / андрогени ───────────────
     {

@@ -15,8 +15,10 @@ export class MedicalSourceDto {
   @MaxLength(300)
   title!: string;
 
+  /** Опційний: у частині джерел є лише назва (друковані настанови). */
+  @IsOptional()
   @IsUrl({ require_protocol: true })
-  url!: string;
+  url?: string;
 }
 
 /** Довжина одного текстового розділу. Це довідка, а не стаття. */
@@ -34,20 +36,20 @@ export class BiomarkerContentDto {
   @IsOptional() @IsString() @MaxLength(SECTION) whatItMeasures?: string;
   @IsOptional() @IsString() @MaxLength(SECTION) roleInBody?: string;
 
-  @IsOptional() @IsArray() @IsString({ each: true }) relatedSystems?: string[];
+  @IsOptional() @IsString() @MaxLength(SECTION) relatedSystems?: string;
   @IsOptional() @IsString() @MaxLength(SECTION) functionalLinks?: string;
 
   @IsOptional() @IsString() @MaxLength(SECTION) lowMeaning?: string;
   @IsOptional() @IsString() @MaxLength(SECTION) highMeaning?: string;
 
-  @IsOptional() @IsArray() @IsString({ each: true }) influencingFactors?: string[];
+  @IsOptional() @IsString() @MaxLength(SECTION) influencingFactors?: string;
   @IsOptional() @IsString() @MaxLength(SECTION) preparation?: string;
 
   /** Slug'и наявних маркерів або вільний текст для відсутніх у каталозі. */
   @IsOptional() @IsArray() @IsString({ each: true }) commonlyEvaluatedWith?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) confirmatoryTests?: string[];
 
-  @IsOptional() @IsArray() @IsString({ each: true }) foodSources?: string[];
+  @IsOptional() @IsString() @MaxLength(SECTION) foodSources?: string;
   @IsOptional() @IsString() @MaxLength(SECTION) supplementsInfo?: string;
   @IsOptional() @IsString() @MaxLength(SECTION) drugClassesInfo?: string;
 

@@ -335,24 +335,24 @@ function rangeData(r: ReferenceRangeDto, unit: string) {
  * undefined лишає поле недоторканим при update, null свідомо його очищає.
  */
 function contentData(dto: BiomarkerContentDto, reviewedBy: string) {
-  const json = (v: unknown[] | undefined) =>
-    v === undefined ? undefined : (v as Prisma.InputJsonValue);
   return {
     overview: dto.overview,
     whatItMeasures: dto.whatItMeasures,
     roleInBody: dto.roleInBody,
-    relatedSystems: json(dto.relatedSystems),
+    relatedSystems: dto.relatedSystems,
     functionalLinks: dto.functionalLinks,
     lowMeaning: dto.lowMeaning,
     highMeaning: dto.highMeaning,
-    influencingFactors: json(dto.influencingFactors),
+    influencingFactors: dto.influencingFactors,
     preparation: dto.preparation,
-    commonlyEvaluatedWith: json(dto.commonlyEvaluatedWith),
-    confirmatoryTests: json(dto.confirmatoryTests),
-    foodSources: json(dto.foodSources),
+    commonlyEvaluatedWith: dto.commonlyEvaluatedWith,
+    confirmatoryTests: dto.confirmatoryTests,
+    foodSources: dto.foodSources,
     supplementsInfo: dto.supplementsInfo,
     drugClassesInfo: dto.drugClassesInfo,
-    medicalSources: json(dto.medicalSources),
+    // Єдине, що лишилось Json: у джерел є структура {title, url?}, і масив
+    // рядків її не вміщає.
+    medicalSources: dto.medicalSources as Prisma.InputJsonValue | undefined,
     // Дата перевірки — момент збереження, якщо адмін не вказав свою: контент
     // без неї не можна відрізнити від давно не переглянутого.
     lastReviewedAt: dto.lastReviewedAt ? new Date(dto.lastReviewedAt) : new Date(),
@@ -365,15 +365,15 @@ type ContentRow = {
   overview: string | null;
   whatItMeasures: string | null;
   roleInBody: string | null;
-  relatedSystems: unknown;
+  relatedSystems: string | null;
   functionalLinks: string | null;
   lowMeaning: string | null;
   highMeaning: string | null;
-  influencingFactors: unknown;
+  influencingFactors: string | null;
   preparation: string | null;
-  commonlyEvaluatedWith: unknown;
-  confirmatoryTests: unknown;
-  foodSources: unknown;
+  commonlyEvaluatedWith: string[];
+  confirmatoryTests: string[];
+  foodSources: string | null;
   supplementsInfo: string | null;
   drugClassesInfo: string | null;
   medicalSources: unknown;
@@ -386,26 +386,32 @@ function pickContent(rows: ContentRow[], locale: string) {
   return row ? toContentDto(row) : null;
 }
 
-/** Json-колонки віддаємо клієнту вже масивами, а не сирим unknown. */
+/**
+ * Рядок БД → відповідь клієнту. Текстові поля віддаємо як є; масиви slug'ів
+ * тепер типізовані самою БД. Json лишився тільки в джерелах, тож саме їх і
+ * доводиться перевіряти на форму.
+ */
 function toContentDto(c: ContentRow) {
-  const arr = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+  const sources = Array.isArray(c.medicalSources)
+    ? (c.medicalSources as { title: string; url?: string }[])
+    : [];
   return {
     locale: c.locale,
     overview: c.overview,
     whatItMeasures: c.whatItMeasures,
     roleInBody: c.roleInBody,
-    relatedSystems: arr<string>(c.relatedSystems),
+    relatedSystems: c.relatedSystems,
     functionalLinks: c.functionalLinks,
     lowMeaning: c.lowMeaning,
     highMeaning: c.highMeaning,
-    influencingFactors: arr<string>(c.influencingFactors),
+    influencingFactors: c.influencingFactors,
     preparation: c.preparation,
-    commonlyEvaluatedWith: arr<string>(c.commonlyEvaluatedWith),
-    confirmatoryTests: arr<string>(c.confirmatoryTests),
-    foodSources: arr<string>(c.foodSources),
+    commonlyEvaluatedWith: c.commonlyEvaluatedWith,
+    confirmatoryTests: c.confirmatoryTests,
+    foodSources: c.foodSources,
     supplementsInfo: c.supplementsInfo,
     drugClassesInfo: c.drugClassesInfo,
-    medicalSources: arr<{ title: string; url: string }>(c.medicalSources),
+    medicalSources: sources,
     lastReviewedAt: c.lastReviewedAt,
     reviewedBy: c.reviewedBy,
   };

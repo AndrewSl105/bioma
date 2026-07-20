@@ -18,6 +18,23 @@ export const PATIENT_PROFILE = {
 export const PATIENT_PANELS: PanelSeed[] = [
     {
         labName: 'ДІЛА',
+        orderNo: '005255795',
+        takenAt: '2025-10-06',
+        results: {
+            tsh: 1.102,
+            'free-t3': 3.43,
+            'free-t4': 0.82,
+            'vitamin-d': 95.8,
+            'anti-tpo': 1.30,            // АТПО, негативний (ref < 9.0)
+            'anti-tg': 0.9,              // АТТГ «<0.9» — нижче порога визначення
+            'tsh-receptor-ab': 0.10,     // АТ-р-ТТГ «<0.10» — нижче порога визначення
+            ferritin: 15.70,             // *поза референсом (нижче 23.9) — низький
+            'total-testosterone': 17.78,
+            'free-testosterone': 34.57,
+        },
+    },
+    {
+        labName: 'ДІЛА',
         orderNo: '005254775',
         takenAt: '2025-04-02',
         results: {

@@ -486,15 +486,15 @@ function ContentEditor({
       {text('overview')}
       {text('whatItMeasures')}
       {text('roleInBody')}
-      {list('relatedSystems')}
+      {text('relatedSystems')}
       {text('functionalLinks')}
       {text('lowMeaning')}
       {text('highMeaning')}
-      {list('influencingFactors')}
+      {text('influencingFactors')}
       {text('preparation')}
       {list('commonlyEvaluatedWith')}
       {list('confirmatoryTests')}
-      {list('foodSources')}
+      {text('foodSources')}
       {text('supplementsInfo')}
       {text('drugClassesInfo')}
 

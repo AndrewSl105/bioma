@@ -243,7 +243,8 @@ export interface BiomarkerInput {
   referenceRanges?: ReferenceRangeInput[];
 }
 
-export interface MedicalSource { title: string; url: string }
+/** url опційний: у частині джерел є лише назва (друковані настанови). */
+export interface MedicalSource { title: string; url?: string }
 
 /** Довідковий контент. Усі поля опційні — наповнюється поступово. */
 export interface BiomarkerContent {
@@ -251,15 +252,15 @@ export interface BiomarkerContent {
   overview: string | null;
   whatItMeasures: string | null;
   roleInBody: string | null;
-  relatedSystems: string[];
+  relatedSystems: string | null;
   functionalLinks: string | null;
   lowMeaning: string | null;
   highMeaning: string | null;
-  influencingFactors: string[];
+  influencingFactors: string | null;
   preparation: string | null;
   commonlyEvaluatedWith: string[];
   confirmatoryTests: string[];
-  foodSources: string[];
+  foodSources: string | null;
   supplementsInfo: string | null;
   drugClassesInfo: string | null;
   medicalSources: MedicalSource[];

@@ -3,6 +3,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient, Sex, ResultFlag, ResultSource } from '../src/generated/prisma/client';
 import { CATALOG, CatalogRange } from './catalog';
 import { PATIENT_PANELS, PATIENT_PROFILE } from './patient-data';
+import { CATALOG_CONTENT, type BiomarkerInfoContent } from './catalog-content';
 
 const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
@@ -177,6 +178,67 @@ async function seedCatalog(categoryIdByEn: Map<string, string>) {
   return { created, translations };
 }
 
+/**
+ * Довідковий контент біомаркерів. НЕ створює маркерів — лише доповнює наявні
+ * рядком BiomarkerContent за (biomarkerId, locale). Повторний прогін оновлює
+ * на місці, дублів не робить.
+ *
+ * Прив'язка за slug, і маркери, яких ще немає в БД, тихо пропускаються: контент
+ * пишеться наперед, і його поява не має валити сід через відсутній показник.
+ */
+async function seedContent() {
+  const dbBiomarkers = await prisma.biomarker.findMany({
+    where: { ownerId: null },
+    select: { id: true, slug: true },
+  });
+  const idBySlug = new Map(dbBiomarkers.map((b) => [b.slug, b.id]));
+
+  const toRow = (c: BiomarkerInfoContent) => ({
+    overview: c.overview ?? null,
+    whatItMeasures: c.whatItMeasures ?? null,
+    roleInBody: c.roleInBody ?? null,
+    relatedSystems: c.relatedSystems ?? null,
+    functionalLinks: c.functionalLinks ?? null,
+    lowMeaning: c.lowMeaning ?? null,
+    highMeaning: c.highMeaning ?? null,
+    influencingFactors: c.influencingFactors ?? null,
+    preparation: c.preparation ?? null,
+    commonlyEvaluatedWith: c.commonlyEvaluatedWith ?? [],
+    confirmatoryTests: c.confirmatoryTests ?? [],
+    foodSources: c.foodSources ?? null,
+    supplementsInfo: c.supplementsInfo ?? null,
+    drugClassesInfo: c.drugClassesInfo ?? null,
+    medicalSources: c.medicalSources ?? undefined,
+    lastReviewedAt: c.lastReviewedAt ? new Date(c.lastReviewedAt) : null,
+  });
+
+  let upserts = 0;
+  const skipped: string[] = [];
+  const brokenLinks = new Set<string>();
+
+  for (const [slug, byLocale] of Object.entries(CATALOG_CONTENT)) {
+    const biomarkerId = idBySlug.get(slug);
+    if (!biomarkerId) {
+      skipped.push(slug);
+      continue;
+    }
+    for (const [locale, content] of Object.entries(byLocale)) {
+      // Переліченіslug'и мають бути клікабельними на фронті; той, якого немає
+      // в каталозі, дасть «мертвий» пункт — тож повідомляємо, а не мовчимо.
+      for (const ref of [...(content.commonlyEvaluatedWith ?? []), ...(content.confirmatoryTests ?? [])]) {
+        if (!idBySlug.has(ref)) brokenLinks.add(`${slug}/${locale} → ${ref}`);
+      }
+      await prisma.biomarkerContent.upsert({
+        where: { biomarkerId_locale: { biomarkerId, locale } },
+        update: toRow(content),
+        create: { biomarkerId, locale, ...toRow(content) },
+      });
+      upserts++;
+    }
+  }
+  return { upserts, skipped, brokenLinks: [...brokenLinks] };
+}
+
 async function seedPatient() {
   // Демо-панелі ллються ВИКЛЮЧНО в реальний акаунт Neon Auth — id тільки з env.
   const userId = process.env.SEED_USER_ID?.trim();
@@ -276,6 +338,20 @@ async function main() {
       `(усього ${CATALOG.length}, усі системні), ${c.translations} перекладів.\n` +
       `+1 PROM-опитувальник (PHQ-9).`,
   );
+
+  const content = await seedContent();
+  console.log(
+      `Контент біомаркерів: ${content.upserts} записів (en/uk) upsert-нуто` +
+      (content.skipped.length
+          ? `, пропущено ${content.skipped.length} (немає в каталозі: ${content.skipped.join(', ')}).`
+          : '.'),
+  );
+  if (content.brokenLinks.length) {
+    console.warn(
+        `УВАГА: посилання на маркери, яких немає в каталозі — на фронті вони не стануть ` +
+        `клікабельними:\n  ${content.brokenLinks.join('\n  ')}`,
+    );
+  }
 
   // Демо-дані пацієнта: тільки в реальний акаунт Neon Auth (SEED_USER_ID).
   // UserProfile створює сам сід (upsert), заходити в застосунок заздалегідь не треба.
