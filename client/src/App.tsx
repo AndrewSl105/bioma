@@ -80,7 +80,9 @@ function NavTab({ to, label }: { to: string; label: string }) {
       end={to === '/'}
       className={({ isActive }) =>
         cn(
-          'inline-flex h-9 items-center rounded-full px-3 text-sm font-medium transition-colors',
+          // shrink-0: у прокрутній смузі вкладки не мають стискатись, інакше
+          // замість прокрутки вони просто сплющаться до нечитабельних.
+          'inline-flex h-9 shrink-0 items-center rounded-full px-3 text-sm font-medium transition-colors',
           isActive ? 'bg-primary-soft text-primary-ink' : 'text-muted hover:bg-line/40 hover:text-ink',
         )
       }
@@ -145,7 +147,11 @@ function AppShell() {
         {/* Навігація окремим рядком, а не поруч із логотипом: на 360px у
             верхньому ряду вже стоять ім'я, мова й вихід, і посилання там
             просто не вміщаються. */}
-        <nav className="mx-auto flex max-w-5xl gap-1 px-4 pb-2">
+        {/* overflow-x-auto обов'язковий: шість вкладок займають ~514px, а це
+            ширше за будь-який телефон. Без прокрутки останні просто
+            обрізалися б — «Профіль» був недосяжний узагалі. Прокручується
+            саме смуга вкладок, сторінка по горизонталі стоїть на місці. */}
+        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <NavTab to="/" label={t('nav.dashboard')} />
           <NavTab to="/panels" label={t('nav.panels')} />
           <NavTab to="/body" label={t('nav.body')} />
