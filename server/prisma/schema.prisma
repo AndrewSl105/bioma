@@ -384,8 +384,17 @@ model LabResult {
   biomarkerId String
   biomarker   Biomarker   @relation(fields: [biomarkerId], references: [id], onDelete: Restrict)
 
+  /// Значення В КАНОНІЧНІЙ одиниці показника — саме його рахують прапорець,
+  /// референси й тренд. Якщо бланк був в іншій одиниці, тут уже перерахунок.
   value      Float
   unit       String
+
+  /// Оригінал бланка: що саме ввела людина і в чому. Заповнюється завжди,
+  /// навіть коли конверсії не було, — інакше «як у бланку» довелося б
+  /// відновлювати зворотним рахунком, а це втрата точності й довіри.
+  enteredValue Float?
+  enteredUnit  String?
+
   measuredAt DateTime // дата аналізу (не дата вводу)
   flag       ResultFlag   @default(UNKNOWN)
   source     ResultSource @default(MANUAL)

@@ -1,4 +1,4 @@
-import { useState, ReactNode } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import * as Dialog from '@radix-ui/react-dialog';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -22,12 +22,14 @@ export function AddResultDialog({
   const [open, setOpen] = useState(false);
   const [slug, setSlug] = useState(defaultSlug ?? '');
   const [value, setValue] = useState('');
+  const [unit, setUnit] = useState('');
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState('');
   const qc = useQueryClient();
   const isMobile = useIsMobile();
 
   const { user } = useAuth();
+
   const { data: biomarkers } = useQuery({
     queryKey: ['biomarkers'],
     queryFn: api.biomarkers,
@@ -36,14 +38,29 @@ export function AddResultDialog({
 
   const mutation = useMutation({
     mutationFn: () =>
-      api.addResult({ biomarkerSlug: slug, value: Number(value), measuredAt: date, note: note || undefined }),
+      api.addResult({
+        biomarkerSlug: slug,
+        value: Number(value),
+        // Одиницю надсилаємо лише коли вона не канонічна: порожня означає
+        // «як у каталозі», і сервер сам підставить канон.
+        unit: unit || undefined,
+        measuredAt: date,
+        note: note || undefined,
+      }),
     onSuccess: () => {
       qc.invalidateQueries();
       setOpen(false);
       setValue('');
+      setUnit('');
       setNote('');
     },
   });
+
+  const units = biomarkers?.find((b) => b.slug === slug)?.units ?? [];
+
+  // Показник змінили — стара одиниця більше не застосовна (на іншому маркері
+  // «мг/дл» може бути просто відсутня), тож повертаємось до канону.
+  useEffect(() => setUnit(''), [slug]);
 
   const canSubmit = slug && value !== '' && !Number.isNaN(Number(value));
 
@@ -98,14 +115,31 @@ export function AddResultDialog({
                     </Field>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <Field label={t('addResult.value')}>
-                        <Input
-                          type="number"
-                          inputMode="decimal"
-                          step="any"
-                          value={value}
-                          onChange={(e) => setValue(e.target.value)}
-                          placeholder={t('addResult.valuePlaceholder')}
-                        />
+                        <div className="flex gap-2">
+                          <Input
+                            type="number"
+                            inputMode="decimal"
+                            step="any"
+                            value={value}
+                            onChange={(e) => setValue(e.target.value)}
+                            placeholder={t('addResult.valuePlaceholder')}
+                          />
+                          {/* Вибір одиниці з'являється лише там, де є з чого
+                              обирати: для більшості показників одиниця одна,
+                              і селект із єдиним пунктом — зайвий клік. */}
+                          {units.length > 1 && (
+                            <select
+                              aria-label={t('addResult.unit')}
+                              value={unit || units[0]}
+                              onChange={(e) => setUnit(e.target.value)}
+                              className="h-11 shrink-0 rounded-xl border border-line bg-surface px-2 text-sm"
+                            >
+                              {units.map((u) => (
+                                <option key={u} value={u}>{u}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
                       </Field>
                       <Field label={t('addResult.date')}>
                         {/* max — сьогодні: аналіз не може бути з майбутнього,

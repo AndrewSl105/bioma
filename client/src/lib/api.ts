@@ -245,6 +245,8 @@ export interface OverviewCard {
 export interface Biomarker {
   id: string; slug: string; name: string; shortName: string | null; unit: string; category: BiomarkerCategory | null;
   selected: boolean;
+  /** Одиниці, доступні у формі; канон перший. Рахує сервер. */
+  units?: string[];
 }
 export interface HistoryPoint {
   id: string; value: number; unit: string; measuredAt: string; flag: Flag; zone: Zone | null; source: string; note: string | null;

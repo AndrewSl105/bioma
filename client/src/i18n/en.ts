@@ -209,6 +209,7 @@ export const en: Dictionary = {
     choose: 'Choose…',
     value: 'Value',
     valuePlaceholder: 'e.g. 42.5',
+    unit: 'Unit',
     date: 'Test date',
     note: 'Note (optional)',
     notePlaceholder: 'lab, comment…',

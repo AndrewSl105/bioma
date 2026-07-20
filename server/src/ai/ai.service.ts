@@ -5,6 +5,7 @@ import { ResultSource } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UploadedFileLike } from '../common/uploaded-file';
 import { computeFlag, pickRange } from '../biomarkers/reference.util';
+import { normalizeUnit } from '../biomarkers/unit-conversions';
 import type { Locale } from '../i18n/locale';
 import { localizeBiomarkerName } from '../i18n/localize';
 import {
@@ -249,15 +250,23 @@ export class AiService {
         sex: profile?.sex ?? undefined,
         ageYears,
       });
+
+      // Той самий перерахунок, що й при ручному введенні: бланк із фото —
+      // найімовірніше джерело «чужої» одиниці, бо лабораторію обирає не
+      // застосунок. Без цього імпорт мовчки псував би тренд.
+      const norm = normalizeUnit(biomarker.slug, item.value, item.unit, biomarker.unit);
+
       await this.prisma.$transaction([
         this.prisma.labResult.create({
           data: {
             userId,
             biomarkerId: biomarker.id,
-            value: item.value,
-            unit: item.unit ?? biomarker.unit,
+            value: norm.value,
+            unit: norm.unit,
+            enteredValue: norm.enteredValue,
+            enteredUnit: norm.enteredUnit,
             measuredAt: new Date(body.takenAt),
-            flag: computeFlag(item.value, range ?? undefined),
+            flag: computeFlag(norm.value, range ?? undefined),
             source: ResultSource.AI_PHOTO,
             rawText: item.rawText,
             panelId: panel.id,

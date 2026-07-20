@@ -214,6 +214,7 @@ export const uk = {
     choose: 'Оберіть…',
     value: 'Значення',
     valuePlaceholder: 'напр. 42.5',
+    unit: 'Одиниця',
     date: 'Дата аналізу',
     note: 'Нотатка (необов\'язково)',
     notePlaceholder: 'лабораторія, коментар…',

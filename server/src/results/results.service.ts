@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { computeFlag, pickRange } from '../biomarkers/reference.util';
 import { computeZone, parseBands } from '../biomarkers/bands';
 import { computeRetest } from './retest';
+import { normalizeUnit } from '../biomarkers/unit-conversions';
 import { CreateResultDto } from './dto/create-result.dto';
 import type { CategoryDto } from '../r2/r2.url';
 import type { Locale } from '../i18n/locale';
@@ -220,15 +221,22 @@ export class ResultsService {
       sex: profile?.sex ?? undefined,
       ageYears,
     });
-    const flag = computeFlag(dto.value, range ?? undefined);
+
+    // Приводимо до канонічної одиниці ПЕРЕД прапорцем: референси задані в
+    // каноні, і порівнювати з ними мг/дл означало б рахувати прапорець у
+    // чужій системі числення — тихо і завжди неправильно.
+    const norm = normalizeUnit(biomarker.slug, dto.value, dto.unit, biomarker.unit);
+    const flag = computeFlag(norm.value, range ?? undefined);
 
     const [result] = await this.prisma.$transaction([
       this.prisma.labResult.create({
         data: {
           userId,
           biomarkerId: biomarker.id,
-          value: dto.value,
-          unit: dto.unit ?? biomarker.unit,
+          value: norm.value,
+          unit: norm.unit,
+          enteredValue: norm.enteredValue,
+          enteredUnit: norm.enteredUnit,
           measuredAt: new Date(dto.measuredAt),
           note: dto.note,
           flag,

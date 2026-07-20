@@ -11,6 +11,7 @@ import {
   type LocalizableBiomarker,
   type LocalizableCategory,
 } from '../i18n/localize';
+import { allowedUnits } from './unit-conversions';
 import type { BiomarkerContentDto } from './dto/biomarker-content.dto';
 import type {
   CreateBiomarkerDto,
@@ -23,11 +24,17 @@ type WithTranslations = LocalizableBiomarker & { category?: LocalizableCategory 
 /** Біомаркер у вигляді для клієнта: назви й категорія — обраною мовою. */
 function toDto<T extends WithTranslations>(b: T, locale: Locale) {
   const { translations, category, ...rest } = b;
+  const withUnits = rest as typeof rest & { slug?: string; unit?: string };
   return {
     ...rest,
     ...localizeBiomarkerName(b, locale),
     // Категорія — об'єкт, а не рядок: клієнту потрібні ще slug і картинка.
     category: localizeCategory(category, locale),
+    // Одиниці, які можна обрати у формі. Канон завжди перший. Список рахує
+    // сервер: реєстр конверсій живе тут, і дублювати його на клієнті означало
+    // б дати формі пропонувати одиниці, які бекенд не вміє перерахувати.
+    units:
+      withUnits.slug && withUnits.unit ? allowedUnits(withUnits.slug, withUnits.unit) : undefined,
   };
 }
 
