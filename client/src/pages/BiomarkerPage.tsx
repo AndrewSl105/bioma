@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { ArrowLeft, CloudOff, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useOnline } from '@/lib/useOnline';
+import { OFFLINE_HINT } from '@/lib/offline';
 import { Badge, Button, Card } from '@/components/ui/primitives';
 import { ResultChart } from '@/components/ResultChart';
 import { AddResultDialog } from '@/components/AddResultDialog';
@@ -13,6 +15,7 @@ export function BiomarkerPage() {
   const { slug = '' } = useParams();
   const qc = useQueryClient();
   const { user } = useAuth();
+  const online = useOnline();
   const { data, isLoading } = useQuery({
     queryKey: ['history', slug],
     queryFn: () => api.history(slug),
@@ -23,6 +26,26 @@ export function BiomarkerPage() {
     mutationFn: (id: string) => api.deleteResult(id),
     onSuccess: () => qc.invalidateQueries(),
   });
+
+  // Offline і саме цей показник у кеш не потрапив — чесно кажемо про це,
+  // інакше екран назавжди лишався б на «Завантаження…».
+  if (!data && !online) {
+    return (
+      <div className="space-y-4">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted hover:text-ink">
+          <ArrowLeft size={15} /> До показників
+        </Link>
+        <Card className="p-10 text-center">
+          <CloudOff className="mx-auto mb-3 text-muted" />
+          <p className="font-medium">Немає збережених даних</p>
+          <p className="mt-1 text-sm text-muted">
+            Цей показник ще не завантажувався на цьому пристрої. Відкрийте його,
+            коли з'явиться мережа.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   if (isLoading || !data) return <p className="text-sm text-muted">Завантаження…</p>;
 
@@ -44,7 +67,15 @@ export function BiomarkerPage() {
         </div>
         <AddResultDialog
           defaultSlug={slug}
-          trigger={<Button className="w-full sm:w-auto"><Plus size={17} /> Додати значення</Button>}
+          trigger={
+            <Button
+              className="w-full sm:w-auto"
+              disabled={!online}
+              title={online ? undefined : OFFLINE_HINT}
+            >
+              <Plus size={17} /> Додати значення
+            </Button>
+          }
         />
       </div>
 
@@ -128,6 +159,8 @@ export function BiomarkerPage() {
                 variant="ghost"
                 aria-label="Видалити значення"
                 className="h-11 w-11 shrink-0 p-0 sm:h-9 sm:w-9"
+                disabled={!online}
+                title={online ? undefined : OFFLINE_HINT}
                 onClick={() => del.mutate(p.id)}
               >
                 <Trash2 size={15} />

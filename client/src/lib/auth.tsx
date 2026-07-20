@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, ReactNode } from 'react';
 import { authClient, getJWTToken } from './authClient';
+import { clearPersistedCache } from './persist';
 
 /**
  * Тонкий адаптер над Neon Auth (Better Auth), щоб решта застосунку
@@ -45,6 +46,34 @@ export function clearTokenCache() {
   cached = null;
 }
 
+// ── слід входу для offline-старту ──
+const SIGNED_IN_KEY = 'bioma:signed-in-once';
+
+function markSignedInOnce() {
+  try {
+    window.localStorage.setItem(SIGNED_IN_KEY, '1');
+  } catch {
+    /* приватний режим — offline-старт просто не спрацює */
+  }
+}
+
+function forgetSignedIn() {
+  try {
+    window.localStorage.removeItem(SIGNED_IN_KEY);
+  } catch {
+    /* нічого прибирати */
+  }
+}
+
+/** Чи входив користувач на цьому пристрої (див. коментар в AuthProvider). */
+export function hasSignedInOnce(): boolean {
+  try {
+    return window.localStorage.getItem(SIGNED_IN_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * JWT для Authorization. Свідомо на рівні модуля, а не в компоненті:
  * реєстрація через useEffect створювала гонку — ефекти дітей виконуються
@@ -83,9 +112,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     : null;
 
+  // Слід «цей пристрій уже мав вхід». Потрібен рівно для offline-старту:
+  // перевірка сесії — мережева, тож без інтернету user приходить null, і без
+  // цього прапорця застосунок кидав би на екран логіну поверх збережених
+  // даних, які ми чесно можемо показати. Логіном це НЕ є: токена немає,
+  // будь-який запит до API все одно отримає 401.
+  useEffect(() => {
+    if (user) markSignedInOnce();
+  }, [user]);
+
   const signOut = useCallback(async () => {
+    // Локальні сліди прибираємо ПЕРШИМИ і завжди. Дані аналізів лежать на
+    // диску, тож вихід мусить їх стерти навіть якщо серверний signOut не
+    // вдасться (offline) — інакше вони лишились би наступному користувачу.
     clearTokenCache();
-    await authClient.signOut();
+    clearPersistedCache();
+    forgetSignedIn();
+    try {
+      await authClient.signOut();
+    } catch {
+      // Без мережі сесію на сервері не завершити. Локально ми вже вийшли;
+      // кидати помилку нікуди — це лишило б unhandled rejection.
+    }
   }, []);
 
   const value: AuthCtx = { user, loading: isPending, getToken, signOut };

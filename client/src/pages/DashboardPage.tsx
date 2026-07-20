@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Camera, Plus, TrendingUp } from 'lucide-react';
+import { Camera, CloudOff, Plus, TrendingUp } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useOnline } from '@/lib/useOnline';
+import { OFFLINE_HINT, formatSyncedAt } from '@/lib/offline';
 import { Badge, Button, Card } from '@/components/ui/primitives';
 import { AddResultDialog } from '@/components/AddResultDialog';
 import { AiUploadDialog } from '@/components/AiUploadDialog';
@@ -11,12 +13,21 @@ import { fmtDate, fmtNum, flagColor, flagLabel } from '@/lib/format';
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const online = useOnline();
   // До логіну жодних запитів до API — інакше гарантований 401.
-  const { data: cards, isLoading } = useQuery({
+  // Запит лишається вимкненим і offline (user там null), але вже відновлені
+  // з диска дані useQuery однаково віддає — саме на цьому тримається
+  // offline-читання.
+  const {
+    data: cards,
+    isLoading,
+    dataUpdatedAt,
+  } = useQuery({
     queryKey: ['overview'],
     queryFn: api.overview,
     enabled: !!user,
   });
+  const syncedAt = formatSyncedAt(dataUpdatedAt);
 
   return (
     <div className="space-y-6">
@@ -27,17 +38,56 @@ export function DashboardPage() {
         </div>
         {/* на мобільному — кнопки на всю ширину в стовпчик (у ряд по 50%
             «Додати значення» не вміщається на 360px), на sm:+ — звичайний ряд */}
+        {/* Offline запис вимкнено: у цій версії черги синхронізації немає,
+            тож чесніше не пускати в діалог, ніж дати заповнити форму і
+            впасти на відправці. Розпізнавання з фото — тим паче: воно
+            виконується на сервері. */}
         <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
           <AiUploadDialog
-            trigger={<Button variant="outline" className="w-full sm:w-auto"><Camera size={17} /> З фото</Button>}
+            trigger={
+              <Button
+                variant="outline"
+                className="w-full sm:w-auto"
+                disabled={!online}
+                title={online ? undefined : OFFLINE_HINT}
+              >
+                <Camera size={17} /> З фото
+              </Button>
+            }
           />
           <AddResultDialog
-            trigger={<Button className="w-full sm:w-auto"><Plus size={17} /> Додати значення</Button>}
+            trigger={
+              <Button
+                className="w-full sm:w-auto"
+                disabled={!online}
+                title={online ? undefined : OFFLINE_HINT}
+              >
+                <Plus size={17} /> Додати значення
+              </Button>
+            }
           />
         </div>
       </div>
 
-      {isLoading && <p className="text-sm text-muted">Завантаження…</p>}
+      {/* Offline показуємо вік даних: без цього збережені показники виглядають
+          як щойно завантажені, а для аналізів це вводить в оману. */}
+      {!online && syncedAt && (
+        <p className="text-sm text-muted">Дані оновлено {syncedAt}</p>
+      )}
+
+      {isLoading && online && <p className="text-sm text-muted">Завантаження…</p>}
+
+      {/* Offline і кеш порожній (перший запуск без мережі) — окремий стан,
+          щоб не показувати «додайте перше значення», коли додати нічим. */}
+      {!online && !cards && (
+        <Card className="p-10 text-center">
+          <CloudOff className="mx-auto mb-3 text-muted" />
+          <p className="font-medium">Немає збережених даних</p>
+          <p className="mt-1 text-sm text-muted">
+            Підключіться до мережі, щоб завантажити ваші показники.
+          </p>
+        </Card>
+      )}
 
       {!isLoading && cards?.length === 0 && (
         <Card className="p-10 text-center">
