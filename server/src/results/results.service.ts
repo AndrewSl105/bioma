@@ -4,6 +4,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { computeFlag, pickRange } from '../biomarkers/reference.util';
 import { computeZone, parseBands } from '../biomarkers/bands';
 import { computeRetest } from './retest';
+import { CycleService } from '../cycle/cycle.service';
+
+/**
+ * Показники, референси яких залежать від фази циклу. Для них — і тільки для
+ * них — до кожної точки історії додається фаза на дату забору: без неї
+ * значення естрадіолу чи ЛГ неможливо прочитати правильно.
+ */
+const CYCLE_DEPENDENT = new Set(['estradiol', 'lh', 'fsh', 'progesterone']);
 import { normalizeUnit } from '../biomarkers/unit-conversions';
 import { CreateResultDto } from './dto/create-result.dto';
 import type { CategoryDto } from '../r2/r2.url';
@@ -12,7 +20,10 @@ import { CATEGORY_INCLUDE, localizeBiomarkerName, localizeCategory } from '../i1
 
 @Injectable()
 export class ResultsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cycle: CycleService,
+  ) {}
 
   /** Історія одного показника + серія для графіка + активний референс. */
   async history(userId: string, biomarkerSlug: string, locale: Locale) {
@@ -55,6 +66,14 @@ export class ResultsService {
       source: r.source,
       note: r.note,
     }));
+
+    // Фаза циклу на дату КОЖНОГО забору — контекст, а не висновок. Повертає
+    // null, якщо трекінг вимкнено, профіль не жіночий або відміток немає.
+    if (CYCLE_DEPENDENT.has(biomarker.slug)) {
+      for (const point of series) {
+        (point as any).cyclePhase = await this.cycle.phaseOnDate(userId, point.measuredAt);
+      }
+    }
 
     const latest = series.at(-1) ?? null;
     const previous = series.at(-2) ?? null;

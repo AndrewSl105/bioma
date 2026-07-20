@@ -86,6 +86,15 @@ export const api = {
     request<WellbeingEntry[]>(`/wellbeing/range?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
   saveWellbeing: (body: WellbeingInput) =>
     request<WellbeingEntry>('/wellbeing', { method: 'PUT', body: JSON.stringify(body) }),
+  cycleSettings: () => request<CycleSettings>('/cycle/settings'),
+  updateCycleSettings: (body: Partial<CycleSettings>) =>
+    request<CycleSettings>('/cycle/settings', { method: 'PUT', body: JSON.stringify(body) }),
+  cycle: (from?: string, to?: string) =>
+    request<CycleOverview>(`/cycle${from && to ? `?from=${from}&to=${to}` : ''}`),
+  upsertCycleDay: (body: { date: string; isPeriod?: boolean; flow?: FlowLevel | null; symptoms?: string[]; mood?: number | null; note?: string | null }) =>
+    request<CycleDay>('/cycle/day', { method: 'POST', body: JSON.stringify(body) }),
+  /** Видаляє ВСІ дані циклу, не чіпаючи решту акаунта. */
+  deleteCycleData: () => request<{ deleted: number }>('/cycle', { method: 'DELETE' }),
   intakes: () => request<Intake[]>('/intakes'),
   /** Розбирає текст у пропоновані зміни. НІЧОГО не зберігає. */
   parseIntakeText: (text: string) =>
@@ -271,6 +280,8 @@ export interface Biomarker {
 }
 export interface HistoryPoint {
   id: string; value: number; unit: string; measuredAt: string; flag: Flag; zone: Zone | null; source: string; note: string | null;
+  /** Лише для гормональних маркерів і лише за увімкненого трекінгу циклу. */
+  cyclePhase?: { phase: CyclePhase; dayOfCycle: number } | null;
 }
 export interface History {
   biomarker: { slug: string; name: string; shortName: string | null; unit: string; category: BiomarkerCategory | null; precision: number };
@@ -281,6 +292,31 @@ export interface History {
   series: HistoryPoint[];
 }
 export interface AddResultBody { biomarkerSlug: string; value: number; unit?: string; measuredAt: string; note?: string; }
+
+// ── цикл ──
+export type FlowLevel = 'SPOTTING' | 'LIGHT' | 'MEDIUM' | 'HEAVY';
+export type CyclePhase = 'MENSTRUAL' | 'FOLLICULAR' | 'OVULATION' | 'LUTEAL';
+export interface CycleDay {
+  id: string; date: string; isPeriod: boolean; flow: FlowLevel | null;
+  symptoms: string[]; mood: number | null; note: string | null;
+}
+export interface CycleSettings {
+  enabled: boolean; avgCycleLength: number | null; avgPeriodLength: number | null;
+  trackingGoal: string | null;
+}
+/** Усі estimated* — ОЦІНКА з історії відміток, не медичний факт. */
+export interface CycleOverview {
+  days: CycleDay[];
+  stats: {
+    estimatedCycleLength: number; estimatedPeriodLength: number;
+    cycleLengths: number[];
+    /** true — середні ще з типових значень, а не з власних даних. */
+    usingDefaults: boolean;
+  };
+  current: { phase: CyclePhase; dayOfCycle: number } | null;
+  estimatedNextPeriod: string | null;
+  estimatedFertileWindow: { from: string; to: string } | null;
+}
 
 // ── самопочуття ──
 /** Щоденний чек-ін. Усі шкали 1..5 і всі опційні — можна відзначити лише сон. */

@@ -1,4 +1,6 @@
 import { useTranslation } from 'react-i18next';
+import { useQuery } from '@tanstack/react-query';
+import { api } from './lib/api';
 import { Link, NavLink, Navigate, Route, Routes } from 'react-router-dom';
 import { cn } from './lib/cn';
 import { LogOut, Loader2, CloudOff, Shield } from 'lucide-react';
@@ -16,6 +18,7 @@ import { BodyPage } from './pages/BodyPage';
 import { IntakesPage } from './pages/IntakesPage';
 import { WellbeingPage } from './pages/WellbeingPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { CyclePage } from './pages/CyclePage';
 import { LoginPage } from './pages/LoginPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { RequireAdmin } from './pages/admin/RequireAdmin';
@@ -97,6 +100,13 @@ function AppShell() {
   const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const online = useOnline();
+  // Вкладка «Цикл» показується лише жіночим профілям. Сервер однаково віддає
+  // 403, але й пропонувати розділ, у який не пустять, не варто.
+  const { data: profile } = useQuery({
+    queryKey: ['profile'],
+    queryFn: api.profile,
+    enabled: !!user,
+  });
   // isAdmin стає true лише коли роль реально прийшла з /api/auth/me,
   // тож посилання не блимає у звичайного користувача.
   const { isAdmin } = useCurrentUser();
@@ -157,6 +167,7 @@ function AppShell() {
           <NavTab to="/body" label={t('nav.body')} />
           <NavTab to="/intakes" label={t('nav.intakes')} />
           <NavTab to="/wellbeing" label={t('nav.wellbeing')} />
+          {profile?.sex === 'FEMALE' && <NavTab to="/cycle" label={t('nav.cycle')} />}
           <NavTab to="/profile" label={t('nav.profile')} />
         </nav>
 
@@ -182,6 +193,7 @@ function AppShell() {
           <Route path="/intakes" element={<IntakesPage />} />
           <Route path="/wellbeing" element={<WellbeingPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/cycle" element={<CyclePage />} />
         </Routes>
       </main>
     </div>

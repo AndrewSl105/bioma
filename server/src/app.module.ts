@@ -13,6 +13,7 @@ import { PanelsModule } from './panels/panels.module';
 import { BodyModule } from './body/body.module';
 import { IntakesModule } from './intakes/intakes.module';
 import { WellbeingModule } from './wellbeing/wellbeing.module';
+import { CycleModule } from './cycle/cycle.module';
 import { AiModule } from './ai/ai.module';
 
 @Module({
@@ -28,6 +29,7 @@ import { AiModule } from './ai/ai.module';
     BodyModule,
     IntakesModule,
     WellbeingModule,
+    CycleModule,
     AiModule,
   ],
   // Глобальні guard'и виконуються в порядку реєстрації: спершу автентифікація

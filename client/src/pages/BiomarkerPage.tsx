@@ -224,6 +224,14 @@ export function BiomarkerPage() {
                     <span className={`${p.zone ? zoneColor(p.zone.level).text : f.text} shrink-0`}>
                       {p.zone ? p.zone.label : t(`flag.${p.flag}`)}
                     </span>
+                    {/* Фаза циклу на дату забору — КОНТЕКСТ для трактування:
+                        референси естрадіолу, ЛГ, ФСГ і прогестерону залежать
+                        від фази. Жодного висновку з цього не робимо. */}
+                    {p.cyclePhase && (
+                      <span className="shrink-0 text-primary">
+                        {t('cycle.phaseOnSample', { phase: t(`cycle.phaseValue.${p.cyclePhase.phase}`), day: p.cyclePhase.dayOfCycle })}
+                      </span>
+                    )}
                     {p.source === 'AI_PHOTO' && (
                       <span className="inline-flex shrink-0 items-center gap-1 text-primary">
                         <Sparkles size={11} /> {t('biomarker.fromPhoto')}
