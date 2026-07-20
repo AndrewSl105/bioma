@@ -87,6 +87,27 @@ export const api = {
   saveWellbeing: (body: WellbeingInput) =>
     request<WellbeingEntry>('/wellbeing', { method: 'PUT', body: JSON.stringify(body) }),
   intakes: () => request<Intake[]>('/intakes'),
+  /** Розбирає текст у пропоновані зміни. НІЧОГО не зберігає. */
+  parseIntakeText: (text: string) =>
+    request<{ transcript: string; ops: ProposedIntakeOp[] }>('/intakes/ai/parse', {
+      method: 'POST',
+      body: JSON.stringify({ text }),
+    }),
+  /** Аудіо → транскрипт → пропоновані зміни. НІЧОГО не зберігає. */
+  parseIntakeVoice: (audio: Blob) => {
+    const fd = new FormData();
+    fd.append('audio', audio, 'voice.webm');
+    return request<{ transcript: string; ops: ProposedIntakeOp[] }>('/intakes/ai/voice', {
+      method: 'POST',
+      body: fd,
+    });
+  },
+  /** Єдине місце, де зміни зі списку AI справді потрапляють у базу. */
+  applyIntakeOps: (ops: Omit<ProposedIntakeOp, 'targetLabel'>[]) =>
+    request<{ added: number; stopped: number; updated: number }>('/intakes/ai/apply', {
+      method: 'POST',
+      body: JSON.stringify({ ops }),
+    }),
   addIntake: (body: IntakeInput) =>
     request<Intake>('/intakes', { method: 'POST', body: JSON.stringify(body) }),
   updateIntake: (id: string, body: Partial<IntakeInput>) =>
@@ -289,6 +310,19 @@ export interface IntakeInput {
   type: IntakeType; name: string; drugClassKey?: DrugClassKey | null;
   dosageText?: string; startDate?: string | null; endDate?: string | null; note?: string;
 }
+/** Пропонована AI зміна списку ліків. Нічого не збережено, доки не apply. */
+export interface ProposedIntakeOp {
+  op: 'ADD' | 'STOP' | 'UPDATE';
+  type?: IntakeType;
+  name: string;
+  drugClassKey?: DrugClassKey | null;
+  dosageText?: string | null;
+  note?: string | null;
+  /** Наявний запис, якого стосується STOP/UPDATE; null — не знайдено. */
+  targetId?: string | null;
+  targetLabel?: string | null;
+}
+
 /** Прийом, що збігся з affectedByDrugClasses показника — привід для плашки. */
 export interface MatchedIntake {
   id: string; name: string; type: IntakeType; drugClassKey: DrugClassKey;

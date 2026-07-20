@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pill, Plus, Trash2 } from 'lucide-react';
+import { Mic, Pill, Plus, Trash2 } from 'lucide-react';
 import { api, type DrugClassKey, type Intake, type IntakeType } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useOnline } from '@/lib/useOnline';
@@ -9,6 +9,7 @@ import { offlineHint } from '@/lib/offline';
 import { Button, Card, Field, Input } from '@/components/ui/primitives';
 import { Select } from '@/components/ui/Select';
 import { DRUG_CLASS_KEYS } from '@/lib/taxonomy';
+import { IntakeAiDialog } from '@/components/IntakeAiDialog';
 import { fmtDate } from '@/lib/format';
 
 /**
@@ -52,14 +53,27 @@ export function IntakesPage() {
           <h1 className="font-display text-2xl font-bold tracking-tight">{t('intakes.title')}</h1>
           <p className="text-sm text-muted">{t('intakes.subtitle')}</p>
         </div>
-        <Button
-          className="w-full sm:w-auto"
-          disabled={!online}
-          title={online ? undefined : offlineHint()}
-          onClick={() => setAdding((v) => !v)}
-        >
-          <Plus size={17} /> {t('intakes.add')}
-        </Button>
+        {/* Голос попереду ручної форми: надиктувати «почав D, припинив
+            магній» швидше, ніж заповнити дві картки. Ручний шлях лишається
+            рівноцінною альтернативою, а не запасним. */}
+        <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto">
+          <IntakeAiDialog
+            trigger={
+              <Button className="w-full sm:w-auto" disabled={!online} title={online ? undefined : offlineHint()}>
+                <Mic size={17} /> {t('intakes.addByVoice')}
+              </Button>
+            }
+          />
+          <Button
+            variant="outline"
+            className="w-full sm:w-auto"
+            disabled={!online}
+            title={online ? undefined : offlineHint()}
+            onClick={() => setAdding((v) => !v)}
+          >
+            <Plus size={17} /> {t('intakes.add')}
+          </Button>
+        </div>
       </div>
 
       <p className="rounded-2xl bg-primary-soft p-4 text-xs leading-relaxed text-primary-ink">

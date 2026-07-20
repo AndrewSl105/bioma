@@ -1,0 +1,1 @@
+{"ops": [{"op": "ADD", "name": "вітамін D", "dosageText": "2000 МО щодня", "drugClassKey": null, "type": "SUPPLEMENT", "note": null, "targetId": null}, {"op": "STOP", "name": "Біотин", "dosageText": null, "drugClassKey": "biotin", "type": "SUPPLEMENT", "note": null, "targetId": "cmrt9r0br00001omskzkh5mem"}]}
