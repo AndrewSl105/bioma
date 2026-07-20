@@ -8,7 +8,7 @@ import { api, AiExtractResult } from '@/lib/api';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { DatePicker } from './ui/DatePicker';
 import { Button } from './ui/primitives';
-import { fmtNum } from '@/lib/format';
+import { fmtDate, fmtNum } from '@/lib/format';
 
 /**
  * AI-додавання аналізів:
@@ -108,13 +108,16 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
                         <>
                           <Camera className="text-primary" />
                           <span className="text-sm font-medium">{t('aiUpload.dropTitle')}</span>
-                          <span className="text-xs text-muted">{t('aiUpload.dropHint')}</span>
+                          <span className="text-xs text-muted">{t('aiUpload.dropHintPdf')}</span>
                         </>
                       )}
+                      {/* PDF нарівні з фото: бланк однаково часто приходить
+                          файлом і сканом. capture більше не ставимо — він
+                          примусово відкривав камеру, і файл із «Файлів» чи
+                          пошти обрати було нічим. */}
                       <input
                         type="file"
-                        accept="image/*"
-                        capture="environment"
+                        accept="image/*,application/pdf"
                         className="hidden"
                         onChange={(e) => e.target.files?.[0] && extract.mutate(e.target.files[0])}
                       />
@@ -127,6 +130,18 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
 
                   {preview && (
                     <div className="space-y-4">
+                      {/* Дубль не блокуємо, а попереджаємо: повторне
+                          завантаження того самого бланка — найпоширеніший
+                          спосіб задвоїти історію. Рядки, що вже є, імпорт
+                          однаково пропустить. */}
+                      {preview.duplicate && (
+                        <p className="rounded-xl bg-caution-soft p-3 text-xs text-caution">
+                          {t('aiUpload.duplicatePanel', {
+                            date: fmtDate(preview.duplicate.takenAt),
+                            count: preview.duplicate.resultCount,
+                          })}
+                        </p>
+                      )}
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
                         <span className="text-muted">{t('aiUpload.takenAt')}</span>
                         <DatePicker
@@ -160,10 +175,40 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
                                   {it.matchedBiomarker?.name ?? it.extracted.name}
                                 </div>
                                 <div className="truncate text-xs text-muted">{it.extracted.rawText}</div>
+                                {/* Неточний збіг — окремим підписом. Модель
+                                    впізнала показник приблизно, і мовчки
+                                    записати значення не в той показник гірше,
+                                    ніж попросити підтвердити. */}
+                                {it.matchConfidence === 'fuzzy' && (
+                                  <div className="mt-0.5 text-[11px] text-caution">
+                                    {t('aiUpload.fuzzyMatch')}
+                                  </div>
+                                )}
                               </div>
                               <div className="tabnums shrink-0 text-right">
-                                <div className="font-display text-base font-semibold">{fmtNum(it.extracted.value)}</div>
-                                <div className="text-xs text-muted">{it.extracted.unit}</div>
+                                {/* Показуємо і те, що в бланку, і те, що ляже в
+                                    історію: підтверджувати «30 нг/мл», а
+                                    зберігати 74,88 нмоль/л без пояснення —
+                                    саме той випадок, коли цифри «стрибають». */}
+                                {it.conversion ? (
+                                  <>
+                                    <div className="font-display text-base font-semibold">
+                                      {fmtNum(it.conversion.value)}
+                                    </div>
+                                    <div className="text-xs text-muted">{it.conversion.unit}</div>
+                                    <div className="text-[11px] text-muted">
+                                      {t('aiUpload.fromBlank', {
+                                        value: fmtNum(it.conversion.enteredValue),
+                                        unit: it.conversion.enteredUnit,
+                                      })}
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="font-display text-base font-semibold">{fmtNum(it.extracted.value)}</div>
+                                    <div className="text-xs text-muted">{it.extracted.unit}</div>
+                                  </>
+                                )}
                               </div>
                               {!matched && <span className="shrink-0 text-[11px] text-alert">{t('aiUpload.unknown')}</span>}
                             </button>

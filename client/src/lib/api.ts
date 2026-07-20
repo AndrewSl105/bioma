@@ -357,8 +357,16 @@ export interface PanelCompare {
 }
 export interface AiExtractResult {
   documentId: string; labName: string | null; takenAt: string | null;
-  items: { extracted: { name: string; value: number; unit: string; referenceLow: number | null; referenceHigh: number | null; rawText: string };
-    matchedBiomarker: { slug: string; name: string; unit: string } | null; }[];
+  /** Такий забір уже імпортовано — попереджаємо, щоб не задвоїти історію. */
+  duplicate: { panelId: string; takenAt: string; labName: string | null; resultCount: number } | null;
+  items: {
+    extracted: { name: string; value: number; unit: string; referenceLow: number | null; referenceHigh: number | null; rawText: string };
+    matchedBiomarker: { slug: string; name: string; unit: string } | null;
+    /** exact — за LOINC чи повною назвою; fuzzy треба підтвердити свідомо. */
+    matchConfidence: 'exact' | 'fuzzy' | null;
+    /** Заповнено, лише коли одиниця бланка відрізняється від канонічної. */
+    conversion: { value: number; unit: string; enteredValue: number; enteredUnit: string } | null;
+  }[];
 }
 export interface AiCommitBody {
   documentId?: string; labName?: string; takenAt: string;

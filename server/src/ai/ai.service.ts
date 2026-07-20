@@ -8,6 +8,7 @@ import { computeFlag, pickRange } from '../biomarkers/reference.util';
 import { normalizeUnit } from '../biomarkers/unit-conversions';
 import type { Locale } from '../i18n/locale';
 import { localizeBiomarkerName } from '../i18n/localize';
+import { buildMatcher } from './match-biomarker';
 import {
   EXTRACTION_SYSTEM,
   EXTRACTION_TOOL,
@@ -17,9 +18,18 @@ import {
 
 type AiProvider = 'anthropic' | 'openai';
 
-const PROVIDER = (process.env.AI_PROVIDER ?? 'anthropic') as AiProvider;
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5';
-const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5.6-terra';
+/**
+ * Конфіг читається ЛІНИВО, а не на рівні модуля.
+ *
+ * Імпорти виконуються раніше, ніж ConfigModule.forRoot() підвантажить .env,
+ * тож на момент завантаження файлу process.env ще порожній. Раніше через це
+ * AI_PROVIDER="openai" із .env мовчки ігнорувався: провайдер лишався
+ * anthropic і падав на «ANTHROPIC_API_KEY не налаштовано». У проді змінні
+ * задані середовищем, тому баг був видимий лише локально.
+ */
+const provider = (): AiProvider => (process.env.AI_PROVIDER ?? 'anthropic') as AiProvider;
+const anthropicModel = () => process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5';
+const openaiModel = () => process.env.OPENAI_MODEL ?? 'gpt-5.6-terra';
 
 const EXTRACTION_USER_TEXT = 'Витягни всі показники з цього лабораторного бланка.';
 
@@ -54,8 +64,13 @@ export class AiService {
    */
   async extract(userId: string, file: UploadedFileLike, locale: Locale) {
     if (!file) throw new BadRequestException('Файл не надіслано');
-    if (!file.mimetype.startsWith('image/'))
-      throw new BadRequestException('Очікується зображення (JPEG/PNG/WebP)');
+    // PDF нарівні із фото: бланк із лабораторії однаково часто приходить і
+    // сканом, і файлом, а пайплайн далі однаковий — прев'ю, підтвердження,
+    // запис. Обидва провайдери приймають PDF нативно, тож розпізнавати
+    // сторінки самотужки не треба.
+    const isPdf = file.mimetype === 'application/pdf';
+    if (!isPdf && !file.mimetype.startsWith('image/'))
+      throw new BadRequestException('Очікується зображення (JPEG/PNG/WebP) або PDF');
 
     const doc = await this.prisma.document.create({
       data: {
@@ -69,7 +84,7 @@ export class AiService {
 
     try {
       const extraction =
-        PROVIDER === 'openai'
+        provider() === 'openai'
           ? await this.extractWithOpenAi(file)
           : await this.extractWithAnthropic(file);
 
@@ -83,6 +98,10 @@ export class AiService {
         documentId: doc.id,
         labName: extraction.labName,
         takenAt: extraction.takenAt,
+        // Чи такий забір уже імпортований. Не блокуємо — лише попереджаємо:
+        // повторне завантаження того самого бланка це найпоширеніший спосіб
+        // задвоїти історію, і мовчки дозволяти його не варто.
+        duplicate: await this.findExistingPanel(userId, extraction.labName, extraction.takenAt),
         items: matched,
       };
     } catch (e: any) {
@@ -95,9 +114,30 @@ export class AiService {
   }
 
   /** Виклик Claude vision із примусовим tool use. */
+  /** Блок контенту під тип файлу: у PDF власний тип, не image. */
+  private anthropicSource(file: UploadedFileLike): any {
+    const data = file.buffer.toString('base64');
+    return file.mimetype === 'application/pdf'
+      ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } }
+      : { type: 'image', source: { type: 'base64', media_type: file.mimetype as any, data } };
+  }
+
+  private openaiSource(file: UploadedFileLike): any {
+    const b64 = file.buffer.toString('base64');
+    return file.mimetype === 'application/pdf'
+      ? {
+          type: 'file',
+          file: {
+            filename: file.originalname || 'document.pdf',
+            file_data: `data:application/pdf;base64,${b64}`,
+          },
+        }
+      : { type: 'image_url', image_url: { url: `data:${file.mimetype};base64,${b64}` } };
+  }
+
   private async extractWithAnthropic(file: UploadedFileLike): Promise<ExtractionResult> {
     const message = await this.anthropic.messages.create({
-      model: ANTHROPIC_MODEL,
+      model: anthropicModel(),
       max_tokens: 2048,
       system: EXTRACTION_SYSTEM,
       tools: [EXTRACTION_TOOL],
@@ -106,14 +146,7 @@ export class AiService {
         {
           role: 'user',
           content: [
-            {
-              type: 'image',
-              source: {
-                type: 'base64',
-                media_type: file.mimetype as any,
-                data: file.buffer.toString('base64'),
-              },
-            },
+            this.anthropicSource(file),
             { type: 'text', text: EXTRACTION_USER_TEXT },
           ],
         },
@@ -130,10 +163,13 @@ export class AiService {
 
   /** Виклик OpenAI vision із примусовим function calling. */
   private async extractWithOpenAi(file: UploadedFileLike): Promise<ExtractionResult> {
-    const dataUri = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
-
     const completion = await this.openai.chat.completions.create({
-      model: OPENAI_MODEL,
+      model: openaiModel(),
+      // Моделі з ланцюжком міркувань не приймають function tools у
+      // /v1/chat/completions, доки reasoning_effort не вимкнено явно — саме
+      // це API і пропонує в тексті помилки. Витягування з бланка структурне
+      // (виклик інструмента зі схемою), розмірковувати тут нема над чим.
+      reasoning_effort: 'none',
       tools: [OPENAI_EXTRACTION_TOOL],
       tool_choice: {
         type: 'function',
@@ -144,7 +180,7 @@ export class AiService {
         {
           role: 'user',
           content: [
-            { type: 'image_url', image_url: { url: dataUri } },
+            this.openaiSource(file),
             { type: 'text', text: EXTRACTION_USER_TEXT },
           ],
         },
@@ -169,45 +205,84 @@ export class AiService {
       where: { OR: [{ ownerId: null }, { ownerId: userId }] },
       include: { translations: true },
     });
-    type CatalogItem = (typeof catalog)[number];
+    const bySlug = new Map(catalog.map((b) => [b.slug, b]));
 
-    // Бланки українські, а canonicalName — англійський канон, тому зіставляємо
-    // і по канону, і по всіх локалізованих назвах.
-    const byLoinc = new Map<string, CatalogItem>();
-    const byName = new Map<string, CatalogItem>();
-    const byShort = new Map<string, CatalogItem>();
-
-    for (const b of catalog) {
-      if (b.loincCode) byLoinc.set(b.loincCode, b);
-
-      const names = [b.canonicalName, ...b.translations.map((t) => t.name)];
-      const shorts = [b.canonicalShort, ...b.translations.map((t) => t.shortName)];
-
-      // norm() може дати порожній рядок — такий ключ зловив би будь-що
-      // у fallback через includes(), тож відкидаємо його.
-      for (const n of names) if (n && norm(n)) byName.set(norm(n), b);
-      for (const s of shorts) if (s && norm(s)) byShort.set(norm(s), b);
-    }
-
-    /** Назва для UI — мовою запиту, з відкатом на канон. */
-    const display = (b: CatalogItem) => localizeBiomarkerName(b, locale).name;
+    // Логіка зіставлення живе в match-biomarker.ts і покрита тестами: саме
+    // тут найлегше тихо покласти значення не в той показник.
+    const match = buildMatcher(
+      catalog.map((b) => ({
+        slug: b.slug,
+        loincCode: b.loincCode,
+        names: [b.canonicalName, ...b.translations.map((t) => t.name)],
+        shorts: [b.canonicalShort, ...b.translations.map((t) => t.shortName ?? null)],
+      })),
+    );
 
     return extraction.items.map((item) => {
-      const needle = norm(item.name);
-      const match =
-        (item.loinc && byLoinc.get(item.loinc)) ||
-        byName.get(needle) ||
-        byShort.get(needle) ||
-        [...byShort.entries()].find(([short]) => needle.includes(short))?.[1] ||
-        [...byName.entries()].find(([name]) => needle.includes(name))?.[1];
+      const hit = match(item.name, item.loinc);
+      const biomarker = hit ? bySlug.get(hit.target.slug) : undefined;
+
+      // Одиниця бланка може відрізнятись від канонічної — рахуємо перерахунок
+      // ВІДРАЗУ і показуємо обидва значення. Інакше людина підтверджувала б
+      // «30 нг/мл», а в історію лягало б 74,88 нмоль/л без жодного пояснення.
+      const conversion =
+        biomarker && typeof item.value === 'number'
+          ? normalizeUnit(biomarker.slug, item.value, item.unit, biomarker.unit)
+          : null;
 
       return {
         extracted: item,
-        matchedBiomarker: match
-          ? { slug: match.slug, name: display(match), unit: match.unit }
+        matchedBiomarker: biomarker
+          ? {
+              slug: biomarker.slug,
+              name: localizeBiomarkerName(biomarker, locale).name,
+              unit: biomarker.unit,
+            }
+          : null,
+        /** exact — за LOINC чи повною назвою; fuzzy потребує підтвердження. */
+        matchConfidence: hit?.confidence ?? null,
+        conversion: conversion?.converted
+          ? {
+              value: +conversion.value.toFixed(4),
+              unit: conversion.unit,
+              enteredValue: conversion.enteredValue,
+              enteredUnit: conversion.enteredUnit,
+            }
           : null,
       };
     });
+  }
+
+  /**
+   * Наявний забір за тією ж лабораторією й датою.
+   *
+   * Ідентичність забору — це лабораторія + дата: номера бланка в розпізнаному
+   * тексті може не бути, а дата й лабораторія є завжди. Точного збігу досить,
+   * щоб упізнати повторне завантаження того самого файлу.
+   */
+  private async findExistingPanel(userId: string, labName: string | null, takenAt: string | null) {
+    if (!takenAt) return null;
+    const day = new Date(takenAt);
+    if (Number.isNaN(day.getTime())) return null;
+    const start = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()));
+    const end = new Date(start.getTime() + 86_400_000);
+
+    const existing = await this.prisma.labPanel.findFirst({
+      where: {
+        userId,
+        takenAt: { gte: start, lt: end },
+        ...(labName ? { labName } : {}),
+      },
+      include: { _count: { select: { results: true } } },
+    });
+    return existing
+      ? {
+          panelId: existing.id,
+          takenAt: existing.takenAt,
+          labName: existing.labName,
+          resultCount: existing._count.results,
+        }
+      : null;
   }
 
   /**
@@ -220,6 +295,8 @@ export class AiService {
       labName?: string;
       takenAt: string;
       items: { biomarkerSlug: string; value: number; unit: string; rawText?: string }[];
+      /** Джерело: фото чи PDF. Впливає лише на маркування результатів. */
+      source?: 'AI_PHOTO' | 'IMPORT';
     },
   ) {
     // Профілю може ще не бути — тоді стать/вік невідомі, референси best-effort.
@@ -228,23 +305,46 @@ export class AiService {
       ? Math.floor((Date.now() - profile.birthDate.getTime()) / 31557600000)
       : null;
 
-    const panel = await this.prisma.labPanel.create({
-      data: {
-        userId,
-        name: body.labName,
-        labName: body.labName,
-        takenAt: new Date(body.takenAt),
-        documentId: body.documentId,
-      },
-    });
+    // Ідемпотентність: той самий бланк, завантажений двічі, має лягти в ТУ Ж
+    // панель, а не створити другу з тією ж датою й лабораторією. Повторне
+    // завантаження — найпоширеніший спосіб задвоїти історію.
+    const existing = await this.findExistingPanel(userId, body.labName ?? null, body.takenAt);
+    const panel = existing
+      ? await this.prisma.labPanel.findUniqueOrThrow({ where: { id: existing.panelId } })
+      : await this.prisma.labPanel.create({
+          data: {
+            userId,
+            name: body.labName,
+            labName: body.labName,
+            takenAt: new Date(body.takenAt),
+            documentId: body.documentId,
+          },
+        });
+
+    const measuredAt = new Date(body.takenAt);
+    const resultSource =
+      body.source === 'IMPORT' ? ResultSource.IMPORT : ResultSource.AI_PHOTO;
 
     let created = 0;
+    let skipped = 0;
     for (const item of body.items) {
       const biomarker = await this.prisma.biomarker.findFirst({
         where: { slug: item.biomarkerSlug, OR: [{ ownerId: null }, { ownerId: userId }] },
         include: { referenceRanges: true },
       });
       if (!biomarker) continue;
+
+      // Той самий показник на ту саму дату вже є — не дублюємо. Правка
+      // значення це окрема свідома дія, а не побічний ефект повторного
+      // імпорту того самого файлу.
+      const already = await this.prisma.labResult.findFirst({
+        where: { userId, biomarkerId: biomarker.id, measuredAt },
+        select: { id: true },
+      });
+      if (already) {
+        skipped++;
+        continue;
+      }
 
       const range = pickRange(biomarker.referenceRanges, {
         sex: profile?.sex ?? undefined,
@@ -265,9 +365,9 @@ export class AiService {
             unit: norm.unit,
             enteredValue: norm.enteredValue,
             enteredUnit: norm.enteredUnit,
-            measuredAt: new Date(body.takenAt),
+            measuredAt,
             flag: computeFlag(norm.value, range ?? undefined),
-            source: ResultSource.AI_PHOTO,
+            source: resultSource,
             rawText: item.rawText,
             panelId: panel.id,
           },
@@ -282,14 +382,9 @@ export class AiService {
       ]);
       created++;
     }
-    return { panelId: panel.id, created };
+    // skipped віддаємо явно: «додано 0» без пояснення виглядає як поломка,
+    // хоча насправді все вже було імпортовано раніше.
+    return { panelId: panel.id, created, skipped, reusedPanel: !!existing };
   }
 }
 
-function norm(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/\(.*?\)/g, '')
-    .replace(/[^a-zа-яіїєґ0-9]+/gi, ' ')
-    .trim();
-}
