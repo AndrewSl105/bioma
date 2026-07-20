@@ -8,6 +8,8 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/lib/useIsMobile';
 import { Button, Field, Input } from './ui/primitives';
+import { Select } from './ui/Select';
+import { DatePicker } from './ui/DatePicker';
 
 export function AddResultDialog({
   trigger,
@@ -82,18 +84,17 @@ export function AddResultDialog({
 
                   <div className="space-y-4">
                     <Field label={t('addResult.biomarker')}>
-                      <select
+                      <Select
                         value={slug}
-                        onChange={(e) => setSlug(e.target.value)}
-                        className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base sm:text-sm"
-                      >
-                        <option value="">{t('addResult.choose')}</option>
-                        {biomarkers?.map((b) => (
-                          <option key={b.slug} value={b.slug}>
-                            {b.name} ({b.unit})
-                          </option>
-                        ))}
-                      </select>
+                        onChange={setSlug}
+                        placeholder={t('addResult.choose')}
+                        options={(biomarkers ?? []).map((b) => ({
+                          value: b.slug,
+                          label: b.name,
+                          hint: b.unit,
+                          group: b.category?.name,
+                        }))}
+                      />
                     </Field>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <Field label={t('addResult.value')}>
@@ -107,7 +108,9 @@ export function AddResultDialog({
                         />
                       </Field>
                       <Field label={t('addResult.date')}>
-                        <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                        {/* max — сьогодні: аналіз не може бути з майбутнього,
+                            і краще не дати ввести таку дату, ніж потім її ловити. */}
+                        <DatePicker value={date} onChange={setDate} max={new Date().toISOString().slice(0, 10)} />
                       </Field>
                     </div>
                     <Field label={t('addResult.note')}>

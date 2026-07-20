@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Camera, Check, Loader2, X } from 'lucide-react';
 import { api, AiExtractResult } from '@/lib/api';
 import { useIsMobile } from '@/lib/useIsMobile';
+import { DatePicker } from './ui/DatePicker';
 import { Button } from './ui/primitives';
 import { fmtNum } from '@/lib/format';
 
@@ -128,8 +129,12 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
                     <div className="space-y-4">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
                         <span className="text-muted">{t('aiUpload.takenAt')}</span>
-                        <input type="date" value={takenAt} onChange={(e) => setTakenAt(e.target.value)}
-                          className="h-11 rounded-lg border border-line px-2 text-base sm:h-9 sm:text-sm" />
+                        <DatePicker
+                          value={takenAt}
+                          onChange={setTakenAt}
+                          max={new Date().toISOString().slice(0, 10)}
+                          className="w-44"
+                        />
                         {preview.labName && <span className="min-w-0 truncate text-muted">· {preview.labName}</span>}
                       </div>
 

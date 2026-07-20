@@ -26,6 +26,16 @@ export const en: Dictionary = {
       'This biomarker has not been loaded on this device yet. Open it once you are back online.',
     syncedAt: 'Updated {{when}}',
   },
+  select: {
+    search: 'Search…',
+    notFound: 'Nothing found',
+  },
+  datePicker: {
+    choose: 'Pick a date',
+    today: 'Today',
+    prevMonth: 'Previous month',
+    nextMonth: 'Next month',
+  },
   flag: {
     LOW: 'Below range',
     NORMAL: 'In range',
