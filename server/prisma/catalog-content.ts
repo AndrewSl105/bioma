@@ -60,7 +60,15 @@ export type BiomarkerInfoContent = {
 
 export type LocalizedBiomarkerContent = Partial<Record<Locale, BiomarkerInfoContent>>;
 
-/** Дисклеймер показуємо над блоком контенту незалежно від маркера. */
+/**
+ * Дисклеймер показуємо над блоком контенту незалежно від маркера.
+ *
+ * УВАГА: цей рядок НЕ рендериться. Те, що бачить користувач, лежить у
+ * client/src/i18n (ключ `content.disclaimer`) — бо це текст інтерфейсу, який
+ * має перемикатися разом з мовою. Тут він лишається орієнтиром для авторів
+ * контенту: правити для показу треба саме словники, інакше два тексти
+ * розійдуться, а розходження в дисклеймері — найгірше місце для розбіжностей.
+ */
 export const CONTENT_DISCLAIMER: Record<Locale, string> = {
     en:
         'This is educational information, not medical advice. It is not a diagnosis and ' +
