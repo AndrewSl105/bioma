@@ -10,6 +10,7 @@ import { offlineHint } from '@/lib/offline';
 import { Badge, Button, Card } from '@/components/ui/primitives';
 import { ResultChart } from '@/components/ResultChart';
 import { AddResultDialog } from '@/components/AddResultDialog';
+import { BiomarkerContentSections } from '@/components/BiomarkerContentSections';
 import { fmtDate, fmtNum, flagColor } from '@/lib/format';
 
 export function BiomarkerPage() {
@@ -133,6 +134,8 @@ export function BiomarkerPage() {
           <ResultChart history={data} />
         </Card>
       )}
+
+      <BiomarkerContentSections slug={slug} />
 
       <Card className="divide-y divide-line">
         <div className="px-5 py-3 text-sm font-medium">{t('biomarker.history')}</div>
