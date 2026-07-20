@@ -66,8 +66,14 @@ export function BiomarkerForm({
 
   // ── контент ──
   const [contentLocale, setContentLocale] = useState<string>(SUPPORTED_LOCALES[0]);
+  // Суфікс 'all' обов'язковий: сторінка показника тримає під ключем
+  // ['biomarker-content', slug] ОДИН об'єкт контенту, а тут лежить масив по
+  // локалях. React Query кешує лише за ключем — без суфікса адмін, відкривши
+  // форму й перейшовши потім на /b/:slug, дістав би з кешу масив замість
+  // об'єкта і сторінка впала б. Інвалідація за коротким ключем однаково
+  // накриває обидва: вона зіставляє префікс.
   const { data: allContent } = useQuery({
-    queryKey: ['biomarker-content', biomarker?.slug],
+    queryKey: ['biomarker-content', biomarker?.slug, 'all'],
     queryFn: () => api.allBiomarkerContent(biomarker!.slug),
     enabled: isEdit,
   });

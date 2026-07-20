@@ -49,7 +49,10 @@ export function BiomarkerContentSections({ slug }: { slug: string }) {
   // означало б світити внутрішній ідентифікатор.
   const { data: catalog } = useQuery({ queryKey: ['biomarkers'], queryFn: api.biomarkers });
 
-  if (!content) return null;
+  // Перевіряємо не лише наявність, а й форму: persist-кеш лежить у
+  // localStorage і переживає зміни коду (buster прив'язаний до версії пакета),
+  // тож із попередніх збірок тут могло осісти щось іншої форми.
+  if (!content || Array.isArray(content) || typeof content !== 'object') return null;
 
   const sections = buildSections(content);
   if (sections.length === 0 && content.medicalSources.length === 0) return null;
