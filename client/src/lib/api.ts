@@ -75,6 +75,11 @@ export const api = {
   addResult: (body: AddResultBody) =>
     request('/results', { method: 'POST', body: JSON.stringify(body) }),
   deleteResult: (id: string) => request(`/results/${id}`, { method: 'DELETE' }),
+  setRetestInterval: (slug: string, retestIntervalDays: number | null) =>
+    request<{ slug: string; retestIntervalDays: number | null }>(
+      `/biomarkers/${encodeURIComponent(slug)}/retest`,
+      { method: 'PUT', body: JSON.stringify({ retestIntervalDays }) },
+    ),
   intakes: () => request<Intake[]>('/intakes'),
   addIntake: (body: IntakeInput) =>
     request<Intake>('/intakes', { method: 'POST', body: JSON.stringify(body) }),
@@ -200,10 +205,19 @@ export interface Band { level: BandLevel; label: string; min?: number; max?: num
  * Картка дашборда. Дашборд будується з ОБРАНИХ показників, тож latest === null
  * для щойно доданого показника, по якому ще немає жодного аналізу.
  */
+/** Строк перездачі. null — нагадування не налаштоване або вимірів ще немає. */
+export interface Retest {
+  intervalDays: number;
+  nextDueAt: string;
+  status: 'DUE' | 'OVERDUE' | 'OK';
+  /** Від'ємне — прострочено на стільки днів. */
+  daysLeft: number;
+}
 export interface OverviewCard {
   biomarker: { slug: string; name: string; shortName: string | null; category: BiomarkerCategory | null; unit: string; precision: number };
   latest: { value: number; unit: string; measuredAt: string; flag: Flag; zone: Zone | null } | null;
   reference: { low: number | null; high: number | null; optimalLow: number | null; optimalHigh: number | null } | null;
+  retest: Retest | null;
   count: number;
 }
 /** Показник із системного каталогу. selected — чи він уже на дашборді. */

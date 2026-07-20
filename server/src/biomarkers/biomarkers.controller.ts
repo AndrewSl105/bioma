@@ -6,6 +6,7 @@ import { Locale } from '../i18n/locale.decorator';
 import type { Locale as LocaleTag } from '../i18n/locale';
 import { CreateBiomarkerDto, UpdateBiomarkerDto } from './dto/biomarker.dto';
 import { BiomarkerContentDto } from './dto/biomarker-content.dto';
+import { SetRetestDto } from './dto/biomarker.dto';
 
 @Controller('biomarkers')
 export class BiomarkersController {
@@ -33,6 +34,16 @@ export class BiomarkersController {
     @Locale() locale: LocaleTag,
   ) {
     return this.service.findBySlug(user.userId, slug, locale);
+  }
+
+  /** Особистий інтервал перездачі (днів). null — прибрати нагадування. */
+  @Put(':slug/retest')
+  setRetest(
+    @CurrentUser() user: AuthUser,
+    @Param('slug') slug: string,
+    @Body() dto: SetRetestDto,
+  ) {
+    return this.service.setRetestInterval(user.userId, slug, dto.retestIntervalDays ?? null);
   }
 
   /** Довідковий контент показника мовою запиту. */

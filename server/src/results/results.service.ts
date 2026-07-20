@@ -3,6 +3,7 @@ import { ResultSource, Sex } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeFlag, pickRange } from '../biomarkers/reference.util';
 import { computeZone, parseBands } from '../biomarkers/bands';
+import { computeRetest } from './retest';
 import { CreateResultDto } from './dto/create-result.dto';
 import type { CategoryDto } from '../r2/r2.url';
 import type { Locale } from '../i18n/locale';
@@ -136,7 +137,7 @@ export class ResultsService {
       countByBiomarker.set(r.biomarkerId, (countByBiomarker.get(r.biomarkerId) ?? 0) + 1);
     }
 
-    const cards = selected.map(({ biomarker, biomarkerId }) => {
+    const cards = selected.map(({ biomarker, biomarkerId, retestIntervalDays }) => {
       const latest = latestByBiomarker.get(biomarkerId) ?? null;
       const range = pickRange(biomarker.referenceRanges, {
         sex: profile?.sex ?? undefined,
@@ -177,6 +178,11 @@ export class ResultsService {
         // Самі смуги дашборду не потрібні — графіка тут немає, а картці досить
         // обчисленої зони. Возити їх на кожну картку означало б роздувати і
         // відповідь, і persist-кеш заради даних, які ніхто не читає.
+        retest: computeRetest(
+          latest?.measuredAt ?? null,
+          retestIntervalDays,
+          biomarker.defaultRetestDays,
+        ),
         count: countByBiomarker.get(biomarkerId) ?? 0,
       };
     });

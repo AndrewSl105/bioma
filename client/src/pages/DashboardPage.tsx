@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { AlertTriangle, Camera, CloudOff, LayoutGrid, ListPlus, Plus, Rows3, TrendingUp } from 'lucide-react';
+import { AlertTriangle, CalendarClock, Camera, CloudOff, LayoutGrid, ListPlus, Plus, Rows3, TrendingUp } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useOnline } from '@/lib/useOnline';
@@ -15,7 +15,7 @@ import { AiUploadDialog } from '@/components/AiUploadDialog';
 import { ZoneBadge } from '@/components/ZoneBadge';
 import { fmtDate, fmtNum } from '@/lib/format';
 import { cn } from '@/lib/cn';
-import type { OverviewCard } from '@/lib/api';
+import type { OverviewCard, Retest } from '@/lib/api';
 
 export function DashboardPage() {
   const { t } = useTranslation();
@@ -39,16 +39,18 @@ export function DashboardPage() {
   // Вид і фільтр — стан лише цього екрана, тож живуть у компоненті, а не в URL.
   const [grouped, setGrouped] = useState(false);
   const [onlyOutOfRange, setOnlyOutOfRange] = useState(false);
+  const [onlyDue, setOnlyDue] = useState(false);
 
   // Фільтруємо на клієнті: картки вже всі тут, і зайвий похід на сервер
   // заради відкидання частини масиву нічого б не пришвидшив.
-  const visible = useMemo(
-    () =>
-      onlyOutOfRange
-        ? (cards ?? []).filter((c) => c.latest?.flag === 'HIGH' || c.latest?.flag === 'LOW')
-        : (cards ?? []),
-    [cards, onlyOutOfRange],
-  );
+  const visible = useMemo(() => {
+    let list = cards ?? [];
+    if (onlyOutOfRange) list = list.filter((c) => c.latest?.flag === 'HIGH' || c.latest?.flag === 'LOW');
+    // Фільтри складаються, а не витісняють один одного: «поза нормою і час
+    // перездати» — це саме той перетин, заради якого їх і вмикають разом.
+    if (onlyDue) list = list.filter((c) => c.retest && c.retest.status !== 'OK');
+    return list;
+  }, [cards, onlyOutOfRange, onlyDue]);
 
   // Порядок категорій задав бекенд (sortOrder адміністратора) — зберігаємо
   // порядок появи, а не сортуємо заново.
@@ -65,6 +67,11 @@ export function DashboardPage() {
 
   const outOfRangeCount = useMemo(
     () => (cards ?? []).filter((c) => c.latest?.flag === 'HIGH' || c.latest?.flag === 'LOW').length,
+    [cards],
+  );
+
+  const dueCount = useMemo(
+    () => (cards ?? []).filter((c) => c.retest && c.retest.status !== 'OK').length,
     [cards],
   );
 
@@ -144,6 +151,24 @@ export function DashboardPage() {
             {t('dashboard.onlyOutOfRange')}
             {outOfRangeCount > 0 && ` (${outOfRangeCount})`}
           </button>
+
+          {/* Кнопка з'являється лише коли є що фільтрувати: нагадування
+              налаштовані не в усіх, і порожній фільтр був би мертвою кнопкою. */}
+          {dueCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setOnlyDue((v) => !v)}
+              className={cn(
+                'inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium transition-colors',
+                onlyDue
+                  ? 'bg-caution text-white'
+                  : 'bg-surface text-muted ring-1 ring-line hover:text-ink',
+              )}
+            >
+              <CalendarClock size={13} />
+              {t('dashboard.onlyDue')} ({dueCount})
+            </button>
+          )}
 
           <div className="ml-auto inline-flex rounded-full bg-surface p-0.5 ring-1 ring-line">
             <button
@@ -270,6 +295,7 @@ function CardGrid({ items }: { items: OverviewCard[] }) {
                   </div>
                   {c.latest ? (
                     <>
+                      <RetestNote retest={c.retest} />
                       <div className="mt-4 flex items-baseline gap-1.5">
                         <span className="tabnums font-display text-3xl font-bold">
                           {fmtNum(c.latest.value, c.biomarker.precision)}
@@ -298,5 +324,27 @@ function CardGrid({ items }: { items: OverviewCard[] }) {
           );
         })}
     </div>
+  );
+}
+
+/**
+ * Підпис про перездачу.
+ *
+ * Тільки коли строк настав або минув: «ще 40 днів» — не те, заради чого варто
+ * займати рядок на картці. Прострочене й «скоро» відрізняються словами, а не
+ * лише кольором.
+ */
+function RetestNote({ retest }: { retest: Retest | null }) {
+  const { t } = useTranslation();
+  if (!retest || retest.status === 'OK') return null;
+
+  const overdue = retest.status === 'OVERDUE';
+  return (
+    <p className={cn('mt-2 inline-flex items-center gap-1 text-xs', overdue ? 'text-alert' : 'text-caution')}>
+      <CalendarClock size={12} className="shrink-0" aria-hidden />
+      {overdue
+        ? t('dashboard.retestOverdue', { count: Math.abs(retest.daysLeft) })
+        : t('dashboard.retestDue', { count: retest.daysLeft })}
+    </p>
   );
 }

@@ -117,6 +117,25 @@ export class BiomarkersService {
     return biomarker;
   }
 
+  /**
+   * Особистий інтервал перездачі. null прибирає його — тоді діє типовий
+   * інтервал показника, а якщо й того немає, нагадування просто зникає.
+   *
+   * Пише лише в рядок ЦЬОГО користувача: періодичність — його справа, і
+   * чужий UserBiomarker сюди не потрапляє за побудовою складеного ключа.
+   */
+  async setRetestInterval(userId: string, slug: string, days: number | null) {
+    const biomarker = await this.findSelectable(userId, slug);
+    await this.prisma.userBiomarker.upsert({
+      where: { userId_biomarkerId: { userId, biomarkerId: biomarker.id } },
+      update: { retestIntervalDays: days },
+      // Показник міг бути ще не обраний — тоді налаштування інтервалу і є
+      // вибором: людина явно сказала, що хоче за ним стежити.
+      create: { userId, biomarkerId: biomarker.id, retestIntervalDays: days },
+    });
+    return { slug: biomarker.slug, retestIntervalDays: days };
+  }
+
   async findBySlug(userId: string, slug: string, locale: Locale) {
     const biomarker = await this.prisma.biomarker.findFirst({
       where: { slug, OR: [{ ownerId: null }, { ownerId: userId }] },

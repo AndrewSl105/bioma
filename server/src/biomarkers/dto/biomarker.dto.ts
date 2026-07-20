@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
   MinLength,
@@ -181,4 +182,16 @@ export class UpdateBiomarkerDto {
   @ValidateNested({ each: true })
   @Type(() => ReferenceRangeDto)
   referenceRanges?: ReferenceRangeDto[];
+}
+
+/**
+ * Особистий інтервал перездачі. Верхня межа — 5 років: більше вже не
+ * нагадування, а спосіб випадково вимкнути його, не помітивши.
+ */
+export class SetRetestDto {
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(1825)
+  retestIntervalDays?: number | null;
 }
