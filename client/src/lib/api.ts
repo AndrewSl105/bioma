@@ -75,6 +75,10 @@ export const api = {
   addResult: (body: AddResultBody) =>
     request('/results', { method: 'POST', body: JSON.stringify(body) }),
   deleteResult: (id: string) => request(`/results/${id}`, { method: 'DELETE' }),
+  panels: () => request<PanelSummary[]>('/panels'),
+  panel: (id: string) => request<PanelDetail>(`/panels/${encodeURIComponent(id)}`),
+  comparePanels: (a: string, b: string) =>
+    request<PanelCompare>(`/panels/compare?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}`),
   aiExtract: (file: File) => {
     const fd = new FormData();
     fd.append('file', file);
@@ -200,6 +204,40 @@ export interface History {
   series: HistoryPoint[];
 }
 export interface AddResultBody { biomarkerSlug: string; value: number; unit?: string; measuredAt: string; note?: string; }
+
+// ── забори (LabPanel) ──
+/** Показник у межах бланка — назва вже локалізована бекендом. */
+interface PanelBiomarker {
+  slug: string; name: string; shortName: string | null; unit: string; precision: number;
+  category: BiomarkerCategory | null;
+}
+export interface PanelSummary {
+  id: string; name: string | null; labName: string | null; takenAt: string; resultCount: number;
+}
+export interface PanelRow {
+  id: string; value: number; unit: string; flag: Flag; zone: Zone | null; note: string | null;
+  biomarker: PanelBiomarker;
+  reference: { low: number | null; high: number | null } | null;
+}
+export interface PanelDetail {
+  panel: { id: string; name: string | null; labName: string | null; takenAt: string };
+  groups: { category: BiomarkerCategory | null; items: PanelRow[] }[];
+}
+/** Одна сторона порівняння. null — показник у цьому заборі не здавали. */
+export interface CompareSide { value: number; unit: string; flag: Flag; zone: Zone | null }
+type PanelMeta = { id: string; name: string | null; labName: string | null; takenAt: string };
+export interface PanelCompare {
+  a: PanelMeta;
+  b: PanelMeta;
+  rows: {
+    biomarker: PanelBiomarker;
+    a: CompareSide | null;
+    b: CompareSide | null;
+    /** null, коли бракує однієї зі сторін — різниця «з нічим» не є нулем. */
+    delta: number | null;
+    reference: { low: number | null; high: number | null } | null;
+  }[];
+}
 export interface AiExtractResult {
   documentId: string; labName: string | null; takenAt: string | null;
   items: { extracted: { name: string; value: number; unit: string; referenceLow: number | null; referenceHigh: number | null; rawText: string };

@@ -9,6 +9,7 @@ import { ProfileModule } from './profile/profile.module';
 import { BiomarkersModule } from './biomarkers/biomarkers.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ResultsModule } from './results/results.module';
+import { PanelsModule } from './panels/panels.module';
 import { AiModule } from './ai/ai.module';
 
 @Module({
@@ -20,6 +21,7 @@ import { AiModule } from './ai/ai.module';
     BiomarkersModule,
     CategoriesModule,
     ResultsModule,
+    PanelsModule,
     AiModule,
   ],
   // Глобальні guard'и виконуються в порядку реєстрації: спершу автентифікація

@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
-import { Link, Navigate, Route, Routes } from 'react-router-dom';
+import { Link, NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { cn } from './lib/cn';
 import { LogOut, Loader2, CloudOff, Shield } from 'lucide-react';
 import { useAuth, hasSignedInOnce } from './lib/auth';
 import { useEnsureProfile } from './lib/useEnsureProfile';
@@ -9,6 +10,8 @@ import { Button } from './components/ui/primitives';
 import { LocaleSwitcher } from './components/LocaleSwitcher';
 import { DashboardPage } from './pages/DashboardPage';
 import { BiomarkerPage } from './pages/BiomarkerPage';
+import { PanelsPage } from './pages/PanelsPage';
+import { PanelPage } from './pages/PanelPage';
 import { LoginPage } from './pages/LoginPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { RequireAdmin } from './pages/admin/RequireAdmin';
@@ -58,6 +61,28 @@ export default function App() {
 
       <Route path="*" element={<AppShell />} />
     </Routes>
+  );
+}
+
+/**
+ * Вкладка навігації. NavLink, а не Link: активний стан має братися з
+ * маршруту, інакше після переходу «назад» підсвітка лишалася б на старій.
+ * end на «/» — щоб дашборд не світився активним на /panels.
+ */
+function NavTab({ to, label }: { to: string; label: string }) {
+  return (
+    <NavLink
+      to={to}
+      end={to === '/'}
+      className={({ isActive }) =>
+        cn(
+          'inline-flex h-9 items-center rounded-full px-3 text-sm font-medium transition-colors',
+          isActive ? 'bg-primary-soft text-primary-ink' : 'text-muted hover:bg-line/40 hover:text-ink',
+        )
+      }
+    >
+      {label}
+    </NavLink>
   );
 }
 
@@ -113,6 +138,14 @@ function AppShell() {
           </div>
         </div>
 
+        {/* Навігація окремим рядком, а не поруч із логотипом: на 360px у
+            верхньому ряду вже стоять ім'я, мова й вихід, і посилання там
+            просто не вміщаються. */}
+        <nav className="mx-auto flex max-w-5xl gap-1 px-4 pb-2">
+          <NavTab to="/" label={t('nav.dashboard')} />
+          <NavTab to="/panels" label={t('nav.panels')} />
+        </nav>
+
         {/* Стан мережі: без нього offline виглядав би як «застосунок завис»
             або як застарілі дані, видані за свіжі. */}
         {!online && (
@@ -129,6 +162,8 @@ function AppShell() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/b/:slug" element={<BiomarkerPage />} />
+          <Route path="/panels" element={<PanelsPage />} />
+          <Route path="/panels/:id" element={<PanelPage />} />
         </Routes>
       </main>
     </div>
