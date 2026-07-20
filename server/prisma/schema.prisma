@@ -37,6 +37,21 @@ enum ResultFlag {
   UNKNOWN
 }
 
+/// Тілесна метрика. Окрема модель, а не запис у каталозі біомаркерів:
+/// це не лабораторний аналіз, у неї немає бланка, лабораторії й панелі,
+/// а вводить її людина сама і значно частіше.
+///
+/// Зріст сюди свідомо НЕ входить — він майже сталий у дорослого і живе на
+/// UserProfile.heightCm. ІМТ теж не входить: він похідний (вага + зріст) і
+/// обчислюється на читанні, щоб не було двох джерел правди.
+enum BodyMetricKind {
+  WEIGHT
+  WAIST
+  RESTING_HR
+  BP_SYSTOLIC
+  BP_DIASTOLIC
+}
+
 /// Наші поля користувача. САМА особа (email, ім'я) живе ТІЛЬКИ в Neon Auth
 /// (neon_auth.users_sync) — тут ми її не дублюємо.
 /// userId === Neon Auth id (sub з JWT). Свідомо БЕЗ FK на neon_auth.users_sync:
@@ -51,9 +66,14 @@ model UserProfile {
   /// міграцією БД. Дефолт український — це мова застосунку за замовчуванням.
   locale String @default("uk")
 
+  /// Зріст у сантиметрах. На профілі, а не часовим рядом: у дорослого він
+  /// практично не змінюється, а потрібен постійно — для розрахунку ІМТ.
+  heightCm Int?
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  bodyMetrics   BodyMetric[]
   results       LabResult[]
   panels        LabPanel[]
   documents     Document[]
@@ -326,6 +346,28 @@ model LabResult {
   updatedAt DateTime @updatedAt
 
   @@index([userId, biomarkerId, measuredAt])
+}
+
+/// Одне виміряне значення тілесної метрики.
+///
+/// Тиск зберігається ДВОМА рядками (BP_SYSTOLIC + BP_DIASTOLIC) зі спільним
+/// measuredAt, а не одним рядком із двома полями: так кожна метрика лишається
+/// одним числом із власною історією та зонами, а «120/80» збирається на
+/// читанні. Одне поле під тиск означало б окрему гілку в кожному запиті.
+model BodyMetric {
+  id     String      @id @default(cuid())
+  userId String
+  user   UserProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  kind       BodyMetricKind
+  value      Float
+  measuredAt DateTime
+  note       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, kind, measuredAt])
 }
 
 /// Завантажене фото/скан документа аналізів.

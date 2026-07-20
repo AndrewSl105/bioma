@@ -75,6 +75,19 @@ export const api = {
   addResult: (body: AddResultBody) =>
     request('/results', { method: 'POST', body: JSON.stringify(body) }),
   deleteResult: (id: string) => request(`/results/${id}`, { method: 'DELETE' }),
+  body: () => request<BodyOverview>('/body'),
+  bodyHistory: (kind: BodyMetricKind) =>
+    request<BodyHistory>(`/body/history?kind=${encodeURIComponent(kind)}`),
+  addBodyMetric: (body: { kind: BodyMetricKind; value: number; measuredAt: string; note?: string }) =>
+    request('/body', { method: 'POST', body: JSON.stringify(body) }),
+  addBloodPressure: (body: { systolic: number; diastolic: number; measuredAt: string; note?: string }) =>
+    request('/body/blood-pressure', { method: 'POST', body: JSON.stringify(body) }),
+  setHeight: (heightCm: number | null) =>
+    request<{ heightCm: number | null }>('/body/height', {
+      method: 'PUT',
+      body: JSON.stringify({ heightCm }),
+    }),
+  deleteBodyMetric: (id: string) => request(`/body/${id}`, { method: 'DELETE' }),
   panels: () => request<PanelSummary[]>('/panels'),
   panel: (id: string) => request<PanelDetail>(`/panels/${encodeURIComponent(id)}`),
   comparePanels: (a: string, b: string) =>
@@ -204,6 +217,34 @@ export interface History {
   series: HistoryPoint[];
 }
 export interface AddResultBody { biomarkerSlug: string; value: number; unit?: string; measuredAt: string; note?: string; }
+
+// ── тілесні метрики ──
+export type BodyMetricKind = 'WEIGHT' | 'WAIST' | 'RESTING_HR' | 'BP_SYSTOLIC' | 'BP_DIASTOLIC';
+export interface BodyMetricCard {
+  kind: BodyMetricKind; key: string; unit: string; precision: number; bands: Band[];
+  latest: { id: string; value: number; measuredAt: string; zone: Zone | null } | null;
+  count: number;
+}
+/** Тиск — одна картка з двох значень; zone вже врахувала «вища з двох». */
+export interface BloodPressureCard {
+  systolic: number; diastolic: number; measuredAt: string; unit: string;
+  zone: Zone | null; systolicBands: Band[]; diastolicBands: Band[];
+}
+/** ІМТ похідний: derived === true, тож UI не пропонує вводити його руками. */
+export interface BmiCard {
+  key: string; unit: string; precision: number; value: number; measuredAt: string;
+  bands: Band[]; zone: Zone | null; derived: true;
+}
+export interface BodyOverview {
+  heightCm: number | null;
+  metrics: BodyMetricCard[];
+  bloodPressure: BloodPressureCard | null;
+  bmi: BmiCard | null;
+}
+export interface BodyHistory {
+  kind: BodyMetricKind; key: string; unit: string; precision: number; bands: Band[];
+  series: { id: string; value: number; measuredAt: string; note: string | null; zone: Zone | null }[];
+}
 
 // ── забори (LabPanel) ──
 /** Показник у межах бланка — назва вже локалізована бекендом. */
