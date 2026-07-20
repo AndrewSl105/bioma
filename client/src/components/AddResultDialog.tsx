@@ -1,4 +1,5 @@
 import { useState, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as Dialog from '@radix-ui/react-dialog';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,6 +16,7 @@ export function AddResultDialog({
   trigger: ReactNode;
   defaultSlug?: string;
 }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [slug, setSlug] = useState(defaultSlug ?? '');
   const [value, setValue] = useState('');
@@ -72,20 +74,20 @@ export function AddResultDialog({
                   <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line sm:hidden" />
 
                   <div className="mb-5 flex items-center justify-between">
-                    <Dialog.Title className="text-lg font-semibold">Додати значення</Dialog.Title>
+                    <Dialog.Title className="text-lg font-semibold">{t('addResult.title')}</Dialog.Title>
                     <Dialog.Close asChild>
                       <Button variant="ghost" className="h-10 w-10 shrink-0 p-0 sm:h-8 sm:w-8"><X size={18} /></Button>
                     </Dialog.Close>
                   </div>
 
                   <div className="space-y-4">
-                    <Field label="Показник">
+                    <Field label={t('addResult.biomarker')}>
                       <select
                         value={slug}
                         onChange={(e) => setSlug(e.target.value)}
                         className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base sm:text-sm"
                       >
-                        <option value="">Оберіть…</option>
+                        <option value="">{t('addResult.choose')}</option>
                         {biomarkers?.map((b) => (
                           <option key={b.slug} value={b.slug}>
                             {b.name} ({b.unit})
@@ -94,26 +96,26 @@ export function AddResultDialog({
                       </select>
                     </Field>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Field label="Значення">
+                      <Field label={t('addResult.value')}>
                         <Input
                           type="number"
                           inputMode="decimal"
                           step="any"
                           value={value}
                           onChange={(e) => setValue(e.target.value)}
-                          placeholder="напр. 42.5"
+                          placeholder={t('addResult.valuePlaceholder')}
                         />
                       </Field>
-                      <Field label="Дата аналізу">
+                      <Field label={t('addResult.date')}>
                         <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                       </Field>
                     </div>
-                    <Field label="Нотатка (необов'язково)">
-                      <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="лабораторія, коментар…" />
+                    <Field label={t('addResult.note')}>
+                      <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder={t('addResult.notePlaceholder')} />
                     </Field>
 
                     {mutation.isError && (
-                      <p className="text-sm text-alert">Не вдалося зберегти. Спробуйте ще раз.</p>
+                      <p className="text-sm text-alert">{t('addResult.error')}</p>
                     )}
 
                     <Button
@@ -121,7 +123,7 @@ export function AddResultDialog({
                       disabled={!canSubmit || mutation.isPending}
                       onClick={() => mutation.mutate()}
                     >
-                      {mutation.isPending ? 'Збереження…' : 'Зберегти в історію'}
+                      {mutation.isPending ? t('addResult.saving') : t('addResult.submit')}
                     </Button>
                   </div>
                 </motion.div>

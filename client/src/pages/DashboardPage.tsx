@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -5,14 +6,15 @@ import { Camera, CloudOff, ListPlus, Plus, TrendingUp } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useOnline } from '@/lib/useOnline';
-import { OFFLINE_HINT, formatSyncedAt } from '@/lib/offline';
+import { offlineHint, formatSyncedAt } from '@/lib/offline';
 import { Badge, Button, Card } from '@/components/ui/primitives';
 import { AddResultDialog } from '@/components/AddResultDialog';
 import { AddBiomarkerDialog } from '@/components/AddBiomarkerDialog';
 import { AiUploadDialog } from '@/components/AiUploadDialog';
-import { fmtDate, fmtNum, flagColor, flagLabel } from '@/lib/format';
+import { fmtDate, fmtNum, flagColor } from '@/lib/format';
 
 export function DashboardPage() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const online = useOnline();
   // До логіну жодних запитів до API — інакше гарантований 401.
@@ -34,8 +36,8 @@ export function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-bold tracking-tight">Мої показники</h1>
-          <p className="text-sm text-muted">Динаміка аналізів і референсні межі в одному місці</p>
+          <h1 className="font-display text-2xl font-bold tracking-tight">{t('dashboard.title')}</h1>
+          <p className="text-sm text-muted">{t('dashboard.subtitle')}</p>
         </div>
         {/* на мобільному — кнопки на всю ширину в стовпчик (у ряд по 50%
             «Додати значення» не вміщається на 360px), на sm:+ — звичайний ряд */}
@@ -50,9 +52,9 @@ export function DashboardPage() {
                 variant="outline"
                 className="w-full sm:w-auto"
                 disabled={!online}
-                title={online ? undefined : OFFLINE_HINT}
+                title={online ? undefined : offlineHint()}
               >
-                <ListPlus size={17} /> Показник
+                <ListPlus size={17} /> {t('dashboard.addBiomarker')}
               </Button>
             }
           />
@@ -62,9 +64,9 @@ export function DashboardPage() {
                 variant="outline"
                 className="w-full sm:w-auto"
                 disabled={!online}
-                title={online ? undefined : OFFLINE_HINT}
+                title={online ? undefined : offlineHint()}
               >
-                <Camera size={17} /> З фото
+                <Camera size={17} /> {t('dashboard.fromPhoto')}
               </Button>
             }
           />
@@ -73,9 +75,9 @@ export function DashboardPage() {
               <Button
                 className="w-full sm:w-auto"
                 disabled={!online}
-                title={online ? undefined : OFFLINE_HINT}
+                title={online ? undefined : offlineHint()}
               >
-                <Plus size={17} /> Додати значення
+                <Plus size={17} /> {t('dashboard.addResult')}
               </Button>
             }
           />
@@ -85,20 +87,18 @@ export function DashboardPage() {
       {/* Offline показуємо вік даних: без цього збережені показники виглядають
           як щойно завантажені, а для аналізів це вводить в оману. */}
       {!online && syncedAt && (
-        <p className="text-sm text-muted">Дані оновлено {syncedAt}</p>
+        <p className="text-sm text-muted">{t('offline.syncedAt', { when: syncedAt })}</p>
       )}
 
-      {isLoading && online && <p className="text-sm text-muted">Завантаження…</p>}
+      {isLoading && online && <p className="text-sm text-muted">{t('app.loading')}</p>}
 
       {/* Offline і кеш порожній (перший запуск без мережі) — окремий стан,
           щоб не показувати «додайте перше значення», коли додати нічим. */}
       {!online && !cards && (
         <Card className="p-10 text-center">
           <CloudOff className="mx-auto mb-3 text-muted" />
-          <p className="font-medium">Немає збережених даних</p>
-          <p className="mt-1 text-sm text-muted">
-            Підключіться до мережі, щоб завантажити ваші показники.
-          </p>
+          <p className="font-medium">{t('offline.noSavedData')}</p>
+          <p className="mt-1 text-sm text-muted">{t('offline.connectToLoad')}</p>
         </Card>
       )}
 
@@ -107,18 +107,16 @@ export function DashboardPage() {
       {!isLoading && cards?.length === 0 && (
         <Card className="p-10 text-center">
           <TrendingUp className="mx-auto mb-3 text-primary" />
-          <p className="font-medium">Тут поки порожньо</p>
-          <p className="mt-1 text-sm text-muted">
-            Оберіть показники, які хочете відстежувати, — потім додасте до них значення.
-          </p>
+          <p className="font-medium">{t('dashboard.emptyTitle')}</p>
+          <p className="mt-1 text-sm text-muted">{t('dashboard.emptyHint')}</p>
           <AddBiomarkerDialog
             trigger={
               <Button
                 className="mt-4"
                 disabled={!online}
-                title={online ? undefined : OFFLINE_HINT}
+                title={online ? undefined : offlineHint()}
               >
-                <ListPlus size={17} /> Обрати показники
+                <ListPlus size={17} /> {t('dashboard.emptyAction')}
               </Button>
             }
           />
@@ -149,7 +147,7 @@ export function DashboardPage() {
                     {c.latest && fc && (
                       <Badge className={`${fc.bg} ${fc.text}`}>
                         <span className={`h-1.5 w-1.5 rounded-full ${fc.dot}`} />
-                        {flagLabel[c.latest.flag]}
+                        {t(`flag.${c.latest.flag}`)}
                       </Badge>
                     )}
                   </div>
@@ -164,7 +162,7 @@ export function DashboardPage() {
                       <div className="mt-2 flex items-center justify-between text-xs text-muted">
                         <span>{fmtDate(c.latest.measuredAt)}</span>
                         {c.reference?.low != null && c.reference?.high != null && (
-                          <span>норма {c.reference.low}–{c.reference.high}</span>
+                          <span>{t('dashboard.reference', { low: c.reference.low, high: c.reference.high })}</span>
                         )}
                       </div>
                     </>
@@ -174,7 +172,7 @@ export function DashboardPage() {
                         <span className="font-display text-3xl font-bold text-line">—</span>
                         <span className="text-sm text-muted">{c.biomarker.unit}</span>
                       </div>
-                      <div className="mt-2 text-xs text-muted">Ще немає значень</div>
+                      <div className="mt-2 text-xs text-muted">{t('dashboard.noValues')}</div>
                     </>
                   )}
                 </Card>

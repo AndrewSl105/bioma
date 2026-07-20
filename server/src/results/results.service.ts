@@ -3,17 +3,19 @@ import { ResultSource, Sex } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { computeFlag, pickRange } from '../biomarkers/reference.util';
 import { CreateResultDto } from './dto/create-result.dto';
-import { toCategoryDto, type CategoryDto } from '../r2/r2.url';
+import type { CategoryDto } from '../r2/r2.url';
+import type { Locale } from '../i18n/locale';
+import { CATEGORY_INCLUDE, localizeBiomarkerName, localizeCategory } from '../i18n/localize';
 
 @Injectable()
 export class ResultsService {
   constructor(private prisma: PrismaService) {}
 
   /** Історія одного показника + серія для графіка + активний референс. */
-  async history(userId: string, biomarkerSlug: string) {
+  async history(userId: string, biomarkerSlug: string, locale: Locale) {
     const biomarker = await this.prisma.biomarker.findFirst({
       where: { slug: biomarkerSlug, OR: [{ ownerId: null }, { ownerId: userId }] },
-      include: { referenceRanges: true, category: true },
+      include: { referenceRanges: true, translations: true, category: CATEGORY_INCLUDE },
     });
     if (!biomarker) throw new NotFoundException('Біомаркер не знайдено');
 
@@ -52,10 +54,11 @@ export class ResultsService {
     return {
       biomarker: {
         slug: biomarker.slug,
-        name: biomarker.canonicalName,
-        shortName: biomarker.canonicalShort,
+        // Раніше тут віддавався англійський канон — сторінка показника
+        // ігнорувала переклади, хоча каталог їх застосовував.
+        ...localizeBiomarkerName(biomarker, locale),
         unit: biomarker.unit,
-        category: toCategoryDto(biomarker.category),
+        category: localizeCategory(biomarker.category, locale),
         precision: biomarker.precision,
       },
       reference: range
@@ -82,7 +85,7 @@ export class ResultsService {
    * веде. Новий користувач нічого не обрав — дашборд порожній, поки він не
    * додасть щось зі списку.
    */
-  async overview(userId: string) {
+  async overview(userId: string, locale: Locale) {
     // Профілю може ще не бути (перший вхід не завершився) — тоді стать/вік
     // невідомі, і референси добираються best-effort, без падіння.
     const profile = await this.prisma.userProfile.findUnique({ where: { userId } });
@@ -92,7 +95,11 @@ export class ResultsService {
 
     const selected = await this.prisma.userBiomarker.findMany({
       where: { userId },
-      include: { biomarker: { include: { referenceRanges: true, category: true } } },
+      include: {
+        biomarker: {
+          include: { referenceRanges: true, translations: true, category: CATEGORY_INCLUDE },
+        },
+      },
       // Порядок від категорії, а не від дати виміру: показники без результатів
       // дати не мають, і сортувати весь дашборд за нею більше не можна.
       orderBy: [
@@ -118,7 +125,7 @@ export class ResultsService {
       countByBiomarker.set(r.biomarkerId, (countByBiomarker.get(r.biomarkerId) ?? 0) + 1);
     }
 
-    return selected.map(({ biomarker, biomarkerId }) => {
+    const cards = selected.map(({ biomarker, biomarkerId }) => {
       const latest = latestByBiomarker.get(biomarkerId) ?? null;
       const range = pickRange(biomarker.referenceRanges, {
         sex: profile?.sex ?? undefined,
@@ -127,9 +134,10 @@ export class ResultsService {
       return {
         biomarker: {
           slug: biomarker.slug,
-          name: biomarker.canonicalName,
-          shortName: biomarker.canonicalShort,
-          category: toCategoryDto(biomarker.category) as CategoryDto | null,
+          // Дашборд теж віддавав англійський канон — локалізація до нього
+          // просто не доходила.
+          ...localizeBiomarkerName(biomarker, locale),
+          category: localizeCategory(biomarker.category, locale) as CategoryDto | null,
           unit: biomarker.unit,
           precision: biomarker.precision,
         },
@@ -140,6 +148,21 @@ export class ResultsService {
         count: countByBiomarker.get(biomarkerId) ?? 0,
       };
     });
+
+    // Порядок категорій із БД (sortOrder адміна) зберігаємо, а всередині
+    // категорії впорядковуємо за локалізованою назвою — інакше україномовний
+    // дашборд відсортований за англійським каноном, тобто на вигляд ніяк.
+    const collator = new Intl.Collator(locale);
+    const groups = new Map<string, typeof cards>();
+    for (const card of cards) {
+      const key = card.biomarker.category?.slug ?? '';
+      const group = groups.get(key);
+      if (group) group.push(card);
+      else groups.set(key, [card]);
+    }
+    return [...groups.values()].flatMap((group) =>
+      group.sort((a, b) => collator.compare(a.biomarker.name, b.biomarker.name)),
+    );
   }
 
   async create(userId: string, dto: CreateResultDto, source: ResultSource = ResultSource.MANUAL) {

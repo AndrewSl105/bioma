@@ -1,10 +1,13 @@
+import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, Link } from 'react-router-dom';
 import { ArrowLeft, FolderTree, TestTube2 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
+// labelKey, а не готовий рядок: масив обчислюється раз при імпорті модуля й
+// застиг би мовою, активною на той момент.
 const NAV = [
-  { to: '/admin/categories', label: 'Категорії', icon: FolderTree },
-  { to: '/admin/biomarkers', label: 'Маркери', icon: TestTube2 },
+  { to: '/admin/categories', labelKey: 'admin.categories', icon: FolderTree },
+  { to: '/admin/biomarkers', labelKey: 'admin.biomarkers', icon: TestTube2 },
 ];
 
 /**
@@ -13,6 +16,8 @@ const NAV = [
  * мобільному коштувала б більше, ніж дає.
  */
 export function AdminLayout() {
+  const { t } = useTranslation();
+
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-line bg-paper/80 backdrop-blur">
@@ -28,17 +33,17 @@ export function AdminLayout() {
             <ArrowLeft size={16} />
             {/* На вузькому екрані лишається лише стрілка — підпис з'їдав
                 місце в рядку з назвою. Доступну назву лишаємо для скрінрідерів. */}
-            <span className="hidden sm:inline">До застосунку</span>
-            <span className="sr-only sm:hidden">До застосунку</span>
+            <span className="hidden sm:inline">{t('admin.toApp')}</span>
+            <span className="sr-only sm:hidden">{t('admin.toApp')}</span>
           </Link>
 
           <span className="min-w-0 flex-1 truncate font-display text-lg font-bold tracking-tight">
-            Адмінка
+            {t('admin.title')}
           </span>
         </div>
 
         <nav className="mx-auto flex max-w-5xl gap-1 px-2 pb-2">
-          {NAV.map(({ to, label, icon: Icon }) => (
+          {NAV.map(({ to, labelKey, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -53,7 +58,7 @@ export function AdminLayout() {
               }
             >
               <Icon size={16} className="shrink-0" />
-              {label}
+              {t(labelKey)}
             </NavLink>
           ))}
         </nav>

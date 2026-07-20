@@ -28,6 +28,7 @@ export class ProfileService {
   /** Оновлює наші поля. Профілю може ще не бути — створюємо на льоту. */
   async update(userId: string, dto: UpdateProfileDto) {
     const data = {
+      ...(dto.locale !== undefined ? { locale: dto.locale } : {}),
       ...(dto.sex !== undefined ? { sex: dto.sex } : {}),
       ...(dto.birthDate !== undefined
         ? { birthDate: dto.birthDate === null ? null : new Date(dto.birthDate) }

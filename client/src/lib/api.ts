@@ -1,4 +1,5 @@
 import { clearTokenCache, getToken } from './auth';
+import { currentLocale } from '@/i18n';
 
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 
@@ -25,6 +26,9 @@ async function send(path: string, init: RequestInit): Promise<Response> {
     headers: {
       ...(init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       Authorization: `Bearer ${token}`,
+      // Мова — на кожному запиті: назви маркерів і категорій локалізує бекенд,
+      // тож без цього заголовка вони приходили б мовою за замовчуванням.
+      'X-Locale': currentLocale(),
       ...init.headers,
     },
   });
@@ -110,8 +114,9 @@ export interface Profile {
   userId: string;
   sex: Sex | null;
   birthDate: string | null;
+  locale: string;
 }
-export interface UpdateProfileBody { sex?: Sex; birthDate?: string | null; }
+export interface UpdateProfileBody { sex?: Sex; birthDate?: string | null; locale?: string; }
 export type Flag = 'LOW' | 'NORMAL' | 'HIGH' | 'UNKNOWN';
 /**
  * Картка дашборда. Дашборд будується з ОБРАНИХ показників, тож latest === null

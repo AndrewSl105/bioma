@@ -2,19 +2,25 @@ import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
 import { BiomarkersService } from './biomarkers.service';
 import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
 import { AdminOnly } from '../auth/roles.decorator';
+import { Locale } from '../i18n/locale.decorator';
+import type { Locale as LocaleTag } from '../i18n/locale';
 
 @Controller('biomarkers')
 export class BiomarkersController {
   constructor(private service: BiomarkersService) {}
 
   @Get()
-  list(@CurrentUser() user: AuthUser) {
-    return this.service.list(user.userId);
+  list(@CurrentUser() user: AuthUser, @Locale() locale: LocaleTag) {
+    return this.service.list(user.userId, locale);
   }
 
   @Get(':slug')
-  findOne(@CurrentUser() user: AuthUser, @Param('slug') slug: string) {
-    return this.service.findBySlug(user.userId, slug);
+  findOne(
+    @CurrentUser() user: AuthUser,
+    @Param('slug') slug: string,
+    @Locale() locale: LocaleTag,
+  ) {
+    return this.service.findBySlug(user.userId, slug, locale);
   }
 
   /** Додати показник із каталогу на свій дашборд. */
@@ -35,7 +41,7 @@ export class BiomarkersController {
    */
   @Post()
   @AdminOnly()
-  create(@CurrentUser() user: AuthUser, @Body() body: any) {
-    return this.service.createSystem(user.userId, body);
+  create(@CurrentUser() user: AuthUser, @Locale() locale: LocaleTag, @Body() body: any) {
+    return this.service.createSystem(user.userId, locale, body);
   }
 }

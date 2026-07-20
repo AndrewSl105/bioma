@@ -1,33 +1,25 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { Sex } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { toCategoryDto, type CategoryDto } from '../r2/r2.url';
+import type { Locale } from '../i18n/locale';
+import {
+  CATEGORY_INCLUDE,
+  localizeBiomarkerName,
+  localizeCategory,
+  type LocalizableBiomarker,
+  type LocalizableCategory,
+} from '../i18n/localize';
 
-/** Локаль інтерфейсу — якою назвою віддавати біомаркер клієнту. */
-const UI_LOCALE = 'uk';
+type WithTranslations = LocalizableBiomarker & { category?: LocalizableCategory | null };
 
-type CategoryRelation = { id: string; slug: string; name: string; imageKey: string | null } | null;
-
-type WithTranslations = {
-  canonicalName: string;
-  canonicalShort: string | null;
-  translations: { locale: string; name: string; shortName: string | null }[];
-  category?: CategoryRelation;
-};
-
-/**
- * У БД канон англійський, а клієнт очікує поля name/shortName рідною мовою.
- * Тому назви підмінюємо перекладом UI_LOCALE, з відкатом на канон.
- */
-function toDto<T extends WithTranslations>(b: T) {
-  const t = b.translations.find((x) => x.locale === UI_LOCALE);
+/** Біомаркер у вигляді для клієнта: назви й категорія — обраною мовою. */
+function toDto<T extends WithTranslations>(b: T, locale: Locale) {
   const { translations, category, ...rest } = b;
   return {
     ...rest,
-    name: t?.name ?? b.canonicalName,
-    shortName: t?.shortName ?? b.canonicalShort,
+    ...localizeBiomarkerName(b, locale),
     // Категорія — об'єкт, а не рядок: клієнту потрібні ще slug і картинка.
-    category: toCategoryDto(category) as CategoryDto | null,
+    category: localizeCategory(category, locale),
   };
 }
 
@@ -43,7 +35,7 @@ export class BiomarkersService {
    * selected каже, чи показник уже на дашборді, — щоб список у діалозі вибору
    * не пропонував додати те, що вже додано.
    */
-  async list(userId: string) {
+  async list(userId: string, locale: Locale) {
     const rows = await this.prisma.biomarker.findMany({
       // Неактивні маркери зникають із каталогу, але наявні результати за
       // ними лишаються — деактивація не є видаленням історії.
@@ -51,7 +43,7 @@ export class BiomarkersService {
       include: {
         referenceRanges: true,
         translations: true,
-        category: true,
+        category: CATEGORY_INCLUDE,
         selectedBy: { where: { userId }, select: { userId: true } },
       },
       // Категорії — за sortOrder (порядок задає адміністратор), маркери
@@ -62,10 +54,26 @@ export class BiomarkersService {
         { canonicalName: 'asc' },
       ],
     });
-    return rows.map(({ selectedBy, ...b }) => ({
-      ...toDto(b),
+    const dtos = rows.map(({ selectedBy, ...b }) => ({
+      ...toDto(b, locale),
       selected: selectedBy.length > 0,
     }));
+
+    // Порядок категорій задає адміністратор (sortOrder) — він приходить із БД і
+    // зберігається порядком груп. А всередині категорії сортуємо за
+    // ЛОКАЛІЗОВАНОЮ назвою: сортування за англійським каноном виглядало для
+    // україномовного списку випадковим.
+    const collator = new Intl.Collator(locale);
+    const groups = new Map<string, typeof dtos>();
+    for (const dto of dtos) {
+      const key = dto.category?.slug ?? '';
+      const group = groups.get(key);
+      if (group) group.push(dto);
+      else groups.set(key, [dto]);
+    }
+    return [...groups.values()].flatMap((group) =>
+      group.sort((a, b) => collator.compare(a.name, b.name)),
+    );
   }
 
   /** Додає показник на дашборд користувача. Ідемпотентно. */
@@ -101,13 +109,13 @@ export class BiomarkersService {
     return biomarker;
   }
 
-  async findBySlug(userId: string, slug: string) {
+  async findBySlug(userId: string, slug: string, locale: Locale) {
     const biomarker = await this.prisma.biomarker.findFirst({
       where: { slug, OR: [{ ownerId: null }, { ownerId: userId }] },
-      include: { referenceRanges: true, translations: true, category: true },
+      include: { referenceRanges: true, translations: true, category: CATEGORY_INCLUDE },
     });
     if (!biomarker) throw new NotFoundException('Біомаркер не знайдено');
-    return toDto(biomarker);
+    return toDto(biomarker, locale);
   }
 
   /**
@@ -117,6 +125,7 @@ export class BiomarkersService {
    */
   async createSystem(
     adminUserId: string,
+    locale: Locale,
     data: {
       name: string;
       unit: string;
@@ -159,9 +168,9 @@ export class BiomarkersService {
               }
             : undefined,
       },
-      include: { referenceRanges: true, translations: true, category: true },
+      include: { referenceRanges: true, translations: true, category: CATEGORY_INCLUDE },
     });
-    return toDto(created);
+    return toDto(created, locale);
   }
 }
 

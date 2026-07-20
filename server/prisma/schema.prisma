@@ -46,6 +46,11 @@ model UserProfile {
   userId    String    @id
   sex       Sex?
   birthDate DateTime?
+
+  /// Мова інтерфейсу. Не enum: додати локаль має бути правкою словників, а не
+  /// міграцією БД. Дефолт український — це мова застосунку за замовчуванням.
+  locale String @default("uk")
+
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -71,7 +76,25 @@ model BiomarkerCategory {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  biomarkers Biomarker[]
+  biomarkers   Biomarker[]
+  translations BiomarkerCategoryTranslation[]
+}
+
+/// Локалізована назва категорії. BiomarkerCategory.name лишається каноном і
+/// відкатом: категорія без перекладу показується саме ним, а не порожнім рядком.
+model BiomarkerCategoryTranslation {
+  id         String            @id @default(cuid())
+  categoryId String
+  category   BiomarkerCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  locale String
+  name   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([categoryId, locale])
+  @@index([categoryId])
 }
 
 /// Тип аналізу / показник (напр. "Вітамін D (25-OH)", "Загальний холестерин").

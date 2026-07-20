@@ -1,6 +1,9 @@
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { api } from './api';
 import { useAuth } from './auth';
+import { isSupportedLocale, LOCALE_STORAGE_KEY } from '@/i18n';
 
 /**
  * Створює UserProfile у нашій БД одразу після появи користувача з Neon Auth
@@ -13,8 +16,9 @@ import { useAuth } from './auth';
  */
 export function useEnsureProfile() {
   const { user } = useAuth();
+  const { i18n } = useTranslation();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ['profile', 'ensure', user?.id],
     queryFn: api.ensureProfile,
     enabled: !!user,
@@ -28,4 +32,17 @@ export function useEnsureProfile() {
     retry: 5,
     retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 15_000),
   });
+
+  // Мова з профілю підхоплюється лише тоді, коли на цьому пристрої вибору ще
+  // не робили: інакше вхід затирав би щойно перемкнуту мову тією, що збережена
+  // на сервері. Тобто профіль — це дефолт для нового пристрою, а не наказ.
+  const profileLocale = query.data?.locale;
+  useEffect(() => {
+    if (!profileLocale || !isSupportedLocale(profileLocale)) return;
+    if (localStorage.getItem(LOCALE_STORAGE_KEY)) return;
+    if (i18n.resolvedLanguage === profileLocale) return;
+    void i18n.changeLanguage(profileLocale);
+  }, [profileLocale, i18n]);
+
+  return query;
 }

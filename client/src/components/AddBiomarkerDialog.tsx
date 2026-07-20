@@ -1,4 +1,5 @@
 import { useMemo, useState, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as Dialog from '@radix-ui/react-dialog';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -15,6 +16,7 @@ import { Button, Input } from './ui/primitives';
  * людина лише позначає, що саме хоче відстежувати.
  */
 export function AddBiomarkerDialog({ trigger }: { trigger: ReactNode }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const qc = useQueryClient();
@@ -51,13 +53,13 @@ export function AddBiomarkerDialog({ trigger }: { trigger: ReactNode }) {
   const groups = useMemo(() => {
     const map = new Map<string, Biomarker[]>();
     for (const b of filtered) {
-      const key = b.category?.name ?? 'Інше';
+      const key = b.category?.name ?? t('addBiomarker.uncategorized');
       const list = map.get(key);
       if (list) list.push(b);
       else map.set(key, [b]);
     }
     return [...map];
-  }, [filtered]);
+  }, [filtered, t]);
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -86,8 +88,8 @@ export function AddBiomarkerDialog({ trigger }: { trigger: ReactNode }) {
 
                   <div className="mb-4 flex shrink-0 items-center justify-between">
                     <div className="min-w-0">
-                      <Dialog.Title className="text-lg font-semibold">Додати показник</Dialog.Title>
-                      <p className="mt-0.5 text-xs text-muted">Оберіть зі списку, що відстежувати</p>
+                      <Dialog.Title className="text-lg font-semibold">{t('addBiomarker.title')}</Dialog.Title>
+                      <p className="mt-0.5 text-xs text-muted">{t('addBiomarker.subtitle')}</p>
                     </div>
                     <Dialog.Close asChild>
                       <Button variant="ghost" className="h-10 w-10 shrink-0 p-0 sm:h-8 sm:w-8">
@@ -104,17 +106,17 @@ export function AddBiomarkerDialog({ trigger }: { trigger: ReactNode }) {
                     <Input
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Пошук показника…"
+                      placeholder={t('addBiomarker.search')}
                       className="pl-9"
                     />
                   </div>
 
                   <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1">
-                    {isLoading && <p className="py-6 text-center text-sm text-muted">Завантаження…</p>}
+                    {isLoading && <p className="py-6 text-center text-sm text-muted">{t('app.loading')}</p>}
 
                     {!isLoading && groups.length === 0 && (
                       <p className="py-6 text-center text-sm text-muted">
-                        {query ? 'Нічого не знайдено' : 'Каталог порожній'}
+                        {query ? t('addBiomarker.notFound') : t('addBiomarker.emptyCatalog')}
                       </p>
                     )}
 
@@ -156,7 +158,7 @@ export function AddBiomarkerDialog({ trigger }: { trigger: ReactNode }) {
 
                   {toggle.isError && (
                     <p className="mt-3 shrink-0 text-sm text-alert">
-                      Не вдалося оновити список. Спробуйте ще раз.
+                      {t('addBiomarker.error')}
                     </p>
                   )}
                 </motion.div>

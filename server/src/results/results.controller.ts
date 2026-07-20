@@ -2,19 +2,25 @@ import { Body, Controller, Delete, Get, Param, Post, Query } from '@nestjs/commo
 import { ResultsService } from './results.service';
 import { CreateResultDto } from './dto/create-result.dto';
 import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
+import { Locale } from '../i18n/locale.decorator';
+import type { Locale as LocaleTag } from '../i18n/locale';
 
 @Controller()
 export class ResultsController {
   constructor(private service: ResultsService) {}
 
   @Get('overview')
-  overview(@CurrentUser() user: AuthUser) {
-    return this.service.overview(user.userId);
+  overview(@CurrentUser() user: AuthUser, @Locale() locale: LocaleTag) {
+    return this.service.overview(user.userId, locale);
   }
 
   @Get('results')
-  history(@CurrentUser() user: AuthUser, @Query('biomarker') slug: string) {
-    return this.service.history(user.userId, slug);
+  history(
+    @CurrentUser() user: AuthUser,
+    @Query('biomarker') slug: string,
+    @Locale() locale: LocaleTag,
+  ) {
+    return this.service.history(user.userId, slug, locale);
   }
 
   @Post('results')

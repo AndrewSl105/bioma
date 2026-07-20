@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Link, Navigate, Route, Routes } from 'react-router-dom';
 import { LogOut, Loader2, CloudOff, Shield } from 'lucide-react';
 import { useAuth, hasSignedInOnce } from './lib/auth';
@@ -5,6 +6,7 @@ import { useEnsureProfile } from './lib/useEnsureProfile';
 import { useCurrentUser } from './lib/useCurrentUser';
 import { useOnline } from './lib/useOnline';
 import { Button } from './components/ui/primitives';
+import { LocaleSwitcher } from './components/LocaleSwitcher';
 import { DashboardPage } from './pages/DashboardPage';
 import { BiomarkerPage } from './pages/BiomarkerPage';
 import { LoginPage } from './pages/LoginPage';
@@ -61,6 +63,7 @@ export default function App() {
 
 /** Основна оболонка застосунку: шапка, стан мережі й користувацькі сторінки. */
 function AppShell() {
+  const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const online = useOnline();
   // isAdmin стає true лише коли роль реально прийшла з /api/auth/me,
@@ -79,28 +82,29 @@ function AppShell() {
           >
             {/* alt="" — назву поруч уже озвучує текст, щоб не дублювати */}
             <img src="/logo.svg" alt="" className="h-8 w-8 shrink-0" />
-            <span className="truncate font-display text-lg font-bold tracking-tight">Bioma</span>
+            <span className="truncate font-display text-lg font-bold tracking-tight">{t('app.name')}</span>
           </Link>
 
           <div className="flex min-w-0 items-center gap-1">
             {/* Offline сесії немає, тож імені ми не знаємо — показуємо стан,
                 а не порожнє місце поруч із кнопкою виходу. */}
             <span className="min-w-0 truncate text-sm text-muted">
-              {user ? (user.name ?? user.email) : 'Збережені дані'}
+              {user ? (user.name ?? user.email) : t('app.savedData')}
             </span>
             {isAdmin && (
               <Link
                 to="/admin/categories"
-                aria-label="Адмінка"
-                title="Адмінка"
+                aria-label={t('app.admin')}
+                title={t('app.admin')}
                 className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-line/40 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
               >
                 <Shield size={16} />
               </Link>
             )}
+            <LocaleSwitcher />
             <Button
               variant="ghost"
-              aria-label="Вийти"
+              aria-label={t('app.signOut')}
               className="h-11 w-11 shrink-0 p-0"
               onClick={() => void signOut()}
             >
@@ -117,7 +121,7 @@ function AppShell() {
             className="flex items-center justify-center gap-2 border-t border-line bg-primary-soft px-4 py-2 text-sm text-primary-ink"
           >
             <CloudOff size={15} className="shrink-0" />
-            <span>Немає мережі — показуємо збережені дані</span>
+            <span>{t('app.offlineBanner')}</span>
           </div>
         )}
       </header>

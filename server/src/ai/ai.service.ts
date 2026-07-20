@@ -5,6 +5,8 @@ import { ResultSource } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UploadedFileLike } from '../common/uploaded-file';
 import { computeFlag, pickRange } from '../biomarkers/reference.util';
+import type { Locale } from '../i18n/locale';
+import { localizeBiomarkerName } from '../i18n/localize';
 import {
   EXTRACTION_SYSTEM,
   EXTRACTION_TOOL,
@@ -19,9 +21,6 @@ const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-5';
 const OPENAI_MODEL = process.env.OPENAI_MODEL ?? 'gpt-5.6-terra';
 
 const EXTRACTION_USER_TEXT = 'Витягни всі показники з цього лабораторного бланка.';
-
-/** Локаль інтерфейсу — якою назвою показника відповідати клієнту. */
-const UI_LOCALE = 'uk';
 
 @Injectable()
 export class AiService {
@@ -52,7 +51,7 @@ export class AiService {
    * Створює Document (для аудиту), НЕ додаючи результатів в історію.
    * Повертає прев'ю + мапінг на біомаркери каталогу для підтвердження.
    */
-  async extract(userId: string, file: UploadedFileLike) {
+  async extract(userId: string, file: UploadedFileLike, locale: Locale) {
     if (!file) throw new BadRequestException('Файл не надіслано');
     if (!file.mimetype.startsWith('image/'))
       throw new BadRequestException('Очікується зображення (JPEG/PNG/WebP)');
@@ -78,7 +77,7 @@ export class AiService {
         data: { status: 'PROCESSED', aiRaw: extraction as any },
       });
 
-      const matched = await this.matchToBiomarkers(userId, extraction);
+      const matched = await this.matchToBiomarkers(userId, extraction, locale);
       return {
         documentId: doc.id,
         labName: extraction.labName,
@@ -164,7 +163,7 @@ export class AiService {
   }
 
   /** Зіставляє витягнуті рядки з біомаркерами каталогу (LOINC → назва). */
-  private async matchToBiomarkers(userId: string, extraction: ExtractionResult) {
+  private async matchToBiomarkers(userId: string, extraction: ExtractionResult, locale: Locale) {
     const catalog = await this.prisma.biomarker.findMany({
       where: { OR: [{ ownerId: null }, { ownerId: userId }] },
       include: { translations: true },
@@ -189,9 +188,8 @@ export class AiService {
       for (const s of shorts) if (s && norm(s)) byShort.set(norm(s), b);
     }
 
-    /** Назва для UI: локаль інтерфейсу, інакше канон. */
-    const display = (b: CatalogItem) =>
-      b.translations.find((t) => t.locale === UI_LOCALE)?.name ?? b.canonicalName;
+    /** Назва для UI — мовою запиту, з відкатом на канон. */
+    const display = (b: CatalogItem) => localizeBiomarkerName(b, locale).name;
 
     return extraction.items.map((item) => {
       const needle = norm(item.name);

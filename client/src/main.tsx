@@ -3,6 +3,9 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { QueryClient } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+// Імпорт до App: i18next має ініціалізуватися раніше, ніж будь-який компонент
+// спробує прочитати переклад, інакше перший рендер піде ключами.
+import './i18n';
 import { AuthProvider } from './lib/auth';
 import { persister, shouldDehydrateQuery, PERSIST_MAX_AGE } from './lib/persist';
 import App from './App';

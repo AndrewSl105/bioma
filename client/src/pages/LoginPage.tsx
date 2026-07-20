@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { authClient } from '@/lib/authClient';
 import { Button, Card, Field, Input } from '@/components/ui/primitives';
@@ -11,6 +12,7 @@ type Mode = 'signIn' | 'signUp';
  * той тягне окремий CSS-пресет і конфліктував би з дизайн-системою.
  */
 export function LoginPage() {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>('signIn');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -35,7 +37,7 @@ export function LoginPage() {
           : await authClient.signUp.email({ email: email.trim(), password, name: name.trim() });
 
       if (res.error) {
-        setError(res.error.message ?? 'Не вдалося увійти. Перевірте дані.');
+        setError(res.error.message ?? t('login.failed'));
         return;
       }
 
@@ -43,7 +45,7 @@ export function LoginPage() {
       // useSession лишиться порожнім, тож показуємо це явно.
       if (mode === 'signUp' && !res.data?.token) setVerifySent(true);
     } catch {
-      setError('Сервіс автентифікації недоступний. Спробуйте ще раз.');
+      setError(t('login.unavailable'));
     } finally {
       setPending(false);
     }
@@ -52,11 +54,8 @@ export function LoginPage() {
   if (verifySent) {
     return (
       <Shell>
-        <h1 className="font-display text-xl font-bold">Підтвердіть пошту</h1>
-        <p className="mt-2 text-sm text-muted">
-          Ми надіслали лист на <span className="text-ink">{email}</span>. Перейдіть за посиланням
-          у листі, після чого поверніться сюди й увійдіть.
-        </p>
+        <h1 className="font-display text-xl font-bold">{t('login.verifyTitle')}</h1>
+        <p className="mt-2 text-sm text-muted">{t('login.verifyBody', { email })}</p>
         <Button
           variant="outline"
           className="mt-5 w-full"
@@ -65,7 +64,7 @@ export function LoginPage() {
             setMode('signIn');
           }}
         >
-          Повернутись до входу
+          {t('login.backToSignIn')}
         </Button>
       </Shell>
     );
@@ -74,27 +73,25 @@ export function LoginPage() {
   return (
     <Shell>
       <h1 className="font-display text-xl font-bold">
-        {mode === 'signIn' ? 'Вхід у Bioma' : 'Реєстрація в Bioma'}
+        {mode === 'signIn' ? t('login.signInTitle') : t('login.signUpTitle')}
       </h1>
       <p className="mt-1 text-sm text-muted">
-        {mode === 'signIn'
-          ? 'Ваші аналізи, динаміка й референси — в одному місці.'
-          : 'Створіть акаунт, щоб зберігати історію показників.'}
+        {mode === 'signIn' ? t('login.signInSubtitle') : t('login.signUpSubtitle')}
       </p>
 
       <form onSubmit={submit} className="mt-6 space-y-4">
         {mode === 'signUp' && (
-          <Field label="Ім'я">
+          <Field label={t('login.name')}>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
-              placeholder="Як до вас звертатись"
+              placeholder={t('login.namePlaceholder')}
             />
           </Field>
         )}
 
-        <Field label="Email">
+        <Field label={t('login.email')}>
           <Input
             type="email"
             value={email}
@@ -105,7 +102,7 @@ export function LoginPage() {
           />
         </Field>
 
-        <Field label="Пароль">
+        <Field label={t('login.password')}>
           <Input
             type="password"
             value={password}
@@ -119,12 +116,12 @@ export function LoginPage() {
 
         <Button type="submit" className="w-full" disabled={!canSubmit || pending}>
           {pending && <Loader2 size={16} className="animate-spin" />}
-          {mode === 'signIn' ? 'Увійти' : 'Створити акаунт'}
+          {mode === 'signIn' ? t('login.signIn') : t('login.signUp')}
         </Button>
       </form>
 
       <p className="mt-5 text-center text-sm text-muted">
-        {mode === 'signIn' ? 'Ще немає акаунта?' : 'Вже маєте акаунт?'}{' '}
+        {mode === 'signIn' ? t('login.noAccount') : t('login.hasAccount')}{' '}
         <button
           type="button"
           className="font-medium text-primary hover:text-primary-ink"
@@ -133,7 +130,7 @@ export function LoginPage() {
             setError(null);
           }}
         >
-          {mode === 'signIn' ? 'Зареєструватись' : 'Увійти'}
+          {mode === 'signIn' ? t('login.toSignUp') : t('login.toSignIn')}
         </button>
       </p>
     </Shell>

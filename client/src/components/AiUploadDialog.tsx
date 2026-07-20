@@ -1,4 +1,5 @@
 import { useState, ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as Dialog from '@radix-ui/react-dialog';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -14,6 +15,7 @@ import { fmtNum } from '@/lib/format';
  * 2) користувач звіряє → /ai/commit → значення падають в історію
  */
 export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [preview, setPreview] = useState<AiExtractResult | null>(null);
   const [takenAt, setTakenAt] = useState('');
@@ -86,7 +88,7 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
                   <div className="mx-auto mt-3 h-1 w-10 shrink-0 rounded-full bg-line sm:hidden" />
 
                   <div className="flex shrink-0 items-center justify-between border-b border-line px-5 py-4 sm:px-6">
-                    <Dialog.Title className="text-lg font-semibold">Розпізнати з фото</Dialog.Title>
+                    <Dialog.Title className="text-lg font-semibold">{t('aiUpload.title')}</Dialog.Title>
                     <Dialog.Close asChild>
                       <Button variant="ghost" className="h-10 w-10 shrink-0 p-0 sm:h-8 sm:w-8"><X size={18} /></Button>
                     </Dialog.Close>
@@ -99,13 +101,13 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
                       {extract.isPending ? (
                         <>
                           <Loader2 className="animate-spin text-primary" />
-                          <span className="text-sm text-muted">AI зчитує показники…</span>
+                          <span className="text-sm text-muted">{t('aiUpload.reading')}</span>
                         </>
                       ) : (
                         <>
                           <Camera className="text-primary" />
-                          <span className="text-sm font-medium">Сфотографуйте або завантажте бланк</span>
-                          <span className="text-xs text-muted">JPEG, PNG або WebP до 15 МБ</span>
+                          <span className="text-sm font-medium">{t('aiUpload.dropTitle')}</span>
+                          <span className="text-xs text-muted">{t('aiUpload.dropHint')}</span>
                         </>
                       )}
                       <input
@@ -119,13 +121,13 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
                   )}
 
                   {extract.isError && (
-                    <p className="mt-3 text-sm text-alert">Не вдалося розпізнати документ. Спробуйте чіткіше фото.</p>
+                    <p className="mt-3 text-sm text-alert">{t('aiUpload.error')}</p>
                   )}
 
                   {preview && (
                     <div className="space-y-4">
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-                        <span className="text-muted">Дата дослідження</span>
+                        <span className="text-muted">{t('aiUpload.takenAt')}</span>
                         <input type="date" value={takenAt} onChange={(e) => setTakenAt(e.target.value)}
                           className="h-11 rounded-lg border border-line px-2 text-base sm:h-9 sm:text-sm" />
                         {preview.labName && <span className="min-w-0 truncate text-muted">· {preview.labName}</span>}
@@ -158,7 +160,7 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
                                 <div className="font-display text-base font-semibold">{fmtNum(it.extracted.value)}</div>
                                 <div className="text-xs text-muted">{it.extracted.unit}</div>
                               </div>
-                              {!matched && <span className="shrink-0 text-[11px] text-alert">невідомий</span>}
+                              {!matched && <span className="shrink-0 text-[11px] text-alert">{t('aiUpload.unknown')}</span>}
                             </button>
                           );
                         })}
@@ -175,7 +177,7 @@ export function AiUploadDialog({ trigger }: { trigger: ReactNode }) {
                         disabled={selectedCount === 0 || commit.isPending}
                         onClick={() => commit.mutate()}
                       >
-                        {commit.isPending ? 'Додавання…' : `Додати в історію (${selectedCount})`}
+                        {commit.isPending ? t('aiUpload.committing') : t('aiUpload.commit', { count: selectedCount })}
                       </Button>
                     </div>
                   )}
