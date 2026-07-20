@@ -83,6 +83,7 @@ model UserProfile {
 
   bodyMetrics   BodyMetric[]
   intakes       UserIntake[]
+  wellbeing     WellbeingLog[]
   results       LabResult[]
   panels        LabPanel[]
   documents     Document[]
@@ -406,6 +407,36 @@ model UserIntake {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+/// Щоденний чек-ін самопочуття.
+///
+/// Один запис на день: @db.Date, а не DateTime — без цього два чек-іни за
+/// один день з різним часом були б різними рядками, і @@unique нічого б не
+/// стримував. Правка сьогоднішнього запису має ПЕРЕЗАПИСУВАТИ, а не додавати.
+///
+/// Шкали 1..5 і всі опційні: людина може відзначити лише сон і піти. Настрій
+/// — чутлива тема, тож тон нейтральний; ніяких клінічних висновків і жодної
+/// кризової логіки тут свідомо немає (для валідованих шкал є PROM).
+model WellbeingLog {
+  id     String      @id @default(cuid())
+  userId String
+  user   UserProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  date DateTime @db.Date
+
+  energy       Int?
+  sleepQuality Int?
+  sleepHours   Float?
+  mood         Int?
+  digestion    Int?
+  note         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
 }
 
 /// Одне виміряне значення тілесної метрики.

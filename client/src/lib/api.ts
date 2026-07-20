@@ -80,6 +80,12 @@ export const api = {
       `/biomarkers/${encodeURIComponent(slug)}/retest`,
       { method: 'PUT', body: JSON.stringify({ retestIntervalDays }) },
     ),
+  wellbeing: (date: string) =>
+    request<WellbeingEntry | null>(`/wellbeing?date=${encodeURIComponent(date)}`),
+  wellbeingRange: (from: string, to: string) =>
+    request<WellbeingEntry[]>(`/wellbeing/range?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+  saveWellbeing: (body: WellbeingInput) =>
+    request<WellbeingEntry>('/wellbeing', { method: 'PUT', body: JSON.stringify(body) }),
   intakes: () => request<Intake[]>('/intakes'),
   addIntake: (body: IntakeInput) =>
     request<Intake>('/intakes', { method: 'POST', body: JSON.stringify(body) }),
@@ -237,6 +243,19 @@ export interface History {
   series: HistoryPoint[];
 }
 export interface AddResultBody { biomarkerSlug: string; value: number; unit?: string; measuredAt: string; note?: string; }
+
+// ── самопочуття ──
+/** Щоденний чек-ін. Усі шкали 1..5 і всі опційні — можна відзначити лише сон. */
+export interface WellbeingEntry {
+  id: string; date: string;
+  energy: number | null; sleepQuality: number | null; sleepHours: number | null;
+  mood: number | null; digestion: number | null; note: string | null;
+}
+export interface WellbeingInput {
+  date: string;
+  energy?: number | null; sleepQuality?: number | null; sleepHours?: number | null;
+  mood?: number | null; digestion?: number | null; note?: string | null;
+}
 
 // ── ліки й добавки ──
 export type IntakeType = 'MEDICATION' | 'SUPPLEMENT';

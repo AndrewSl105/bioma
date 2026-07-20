@@ -41,6 +41,7 @@ export const en: Dictionary = {
     panels: 'Panels',
     body: 'Body',
     intakes: 'Meds',
+    wellbeing: 'Wellbeing',
   },
   body: {
     title: 'Body',
@@ -104,6 +105,26 @@ export const en: Dictionary = {
     biotin: 'Biotin',
     ocp: 'Combined oral contraceptives',
     opioid: 'Opioids',
+  },
+  wellbeing: {
+    title: 'Wellbeing',
+    subtitle: 'A short daily check-in — energy, sleep, mood, digestion',
+    day: 'Day',
+    savedForDay: 'This day is already recorded — saving will overwrite it.',
+    save: 'Save',
+    note: 'Note (optional)',
+    notePlaceholder: 'anything else worth remembering about this day',
+    sleepHours: 'Hours of sleep',
+    history: 'Last 30 days',
+    historyHint:
+      'These are simply your own marks over time. We draw no conclusions from them and do not causally link them to lab results.',
+    scaleValue: '{{label}}: {{n}} of 5',
+    scale: {
+      energy: 'Energy',
+      sleepQuality: 'Sleep quality',
+      mood: 'Mood',
+      digestion: 'Digestion',
+    },
   },
   panels: {
     title: 'Panels',
