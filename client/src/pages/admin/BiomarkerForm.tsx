@@ -61,7 +61,7 @@ export function BiomarkerForm({
   const [names, setNames] = useState<Record<string, { name: string; shortName: string }>>(() =>
     Object.fromEntries(
       SUPPORTED_LOCALES.map((l) => {
-        const tr = biomarker?.translations.find((x) => x.locale === l);
+        const tr = (biomarker?.translations ?? []).find((x) => x.locale === l);
         return [l, { name: tr?.name ?? '', shortName: tr?.shortName ?? '' }];
       }),
     ),
@@ -69,7 +69,7 @@ export function BiomarkerForm({
 
   // ── референси ──
   const [ranges, setRanges] = useState<ReferenceRangeInput[]>(
-    () => biomarker?.referenceRanges.map(({ id: _id, unit: _u, ...r }) => r) ?? [],
+    () => (biomarker?.referenceRanges ?? []).map(({ id: _id, unit: _u, ...r }) => r),
   );
 
   // ── контент ──

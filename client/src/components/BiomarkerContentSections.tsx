@@ -61,12 +61,7 @@ export function BiomarkerContentSections({ slug }: { slug: string }) {
 
   if (isLoading) return <p className="text-sm text-muted">{t('app.loading')}</p>;
 
-  // Перевіряємо не лише наявність, а й форму: persist-кеш лежить у localStorage
-  // і переживає зміни коду, тож із попередніх збірок могло осісти щось інше.
-  const c =
-    content && !Array.isArray(content) && typeof content === 'object'
-      ? (content as BiomarkerContent)
-      : null;
+  const c = normalize(content);
 
   if (!c || isEmpty(c)) {
     return (
@@ -364,6 +359,64 @@ function splitSteps(text: string): string[] {
     .split(/[;\n]+/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+/**
+ * Приводить відповідь до повної форми.
+ *
+ * Персистований кеш живе в localStorage і переживає деплої: запис, збережений
+ * до появи нового поля, повернеться без нього — і будь-яке звернення до
+ * `.length` на такому масиві впаде. Саме так сторінка й падала після додавання
+ * relatedSystemKeys: запиту на сервер не було взагалі, дані прийшли з диска.
+ *
+ * Тому нормалізуємо ОДИН раз на вході, а не латаємо кожне звернення: наступне
+ * додане поле інакше повторить ту саму історію.
+ */
+function normalize(raw: unknown): BiomarkerContent | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const c = raw as Record<string, unknown>;
+
+  const arr = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+
+  /**
+   * Текстове поле. Масив теж приймаємо й склеюємо: до переходу на прозу ці
+   * поля були Json-масивами, і в кешах вони ще лежать саме так — краще
+   * показати склеєний перелік, ніж загубити дані або впасти на .trim().
+   */
+  const str = (v: unknown): string | null => {
+    if (typeof v === 'string') return v;
+    if (Array.isArray(v)) return v.filter((x) => typeof x === 'string').join('; ') || null;
+    return null;
+  };
+
+  return {
+    locale: typeof c.locale === 'string' ? c.locale : '',
+    overview: str(c.overview),
+    whatItMeasures: str(c.whatItMeasures),
+    roleInBody: str(c.roleInBody),
+    relatedSystems: str(c.relatedSystems),
+    functionalLinks: str(c.functionalLinks),
+    relatedSystemKeys: arr<string>(c.relatedSystemKeys),
+    functionalTagKeys: arr<string>(c.functionalTagKeys),
+    lowMeaning: str(c.lowMeaning),
+    highMeaning: str(c.highMeaning),
+    influencingFactors: str(c.influencingFactors),
+    preparation: str(c.preparation),
+    commonlyEvaluatedWith: arr<string>(c.commonlyEvaluatedWith),
+    confirmatoryTests: arr<string>(c.confirmatoryTests),
+    foodSources: str(c.foodSources),
+    supplementsInfo: str(c.supplementsInfo),
+    drugClassesInfo: str(c.drugClassesInfo),
+    // Джерела мають структуру — лишаємо лише те, що на неї схоже.
+    medicalSources: arr<{ title?: unknown; url?: unknown }>(c.medicalSources)
+      .filter((s) => s && typeof s.title === 'string')
+      .map((s) => ({
+        title: s.title as string,
+        url: typeof s.url === 'string' ? s.url : undefined,
+      })),
+    lastReviewedAt: typeof c.lastReviewedAt === 'string' ? c.lastReviewedAt : null,
+    reviewedBy: typeof c.reviewedBy === 'string' ? c.reviewedBy : null,
+  };
 }
 
 /** Порожній контент — це коли нема жодного заповненого поля. */

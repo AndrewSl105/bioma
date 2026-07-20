@@ -89,7 +89,9 @@ export function AdminBiomarkersPage() {
                   {b.category && ` · ${b.category.name}`}
                   {/* Локалі контенту одразу в списку: інакше «де вже є довідка»
                       можна дізнатись лише відкривши кожен маркер. */}
-                  {b.contentLocales.length > 0 && ` · ${b.contentLocales.join('/')}`}
+                  {/* ?? [] — запис міг прийти з persist-кешу, збереженого до
+                      появи цього поля; без цього рядок падав би на .length. */}
+                  {(b.contentLocales ?? []).length > 0 && ` · ${b.contentLocales.join('/')}`}
                   {!b.isActive && ` · ${t('admin.inactive')}`}
                 </p>
               </div>
