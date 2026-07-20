@@ -1,12 +1,15 @@
-import { createAuthClient } from '@neondatabase/neon-js/auth';
-import { BetterAuthReactAdapter } from '@neondatabase/neon-js/auth/react';
+import { createInternalNeonAuth } from '@neondatabase/neon-js/auth';
+import {
+  BetterAuthReactAdapter,
+  type BetterAuthReactAdapterInstance,
+} from '@neondatabase/neon-js/auth/react';
 
 /**
  * Клієнт Neon Auth (керований Better Auth).
  *
  * VITE_NEON_AUTH_URL — це той самий хост, що й NEON_AUTH_JWKS_URL на бекенді,
  * але без суфікса /.well-known/jwks.json. Better Auth дописує до нього
- * власні шляхи (/sign-in/email, /token, ...), а бекендний AuthGuard
+ * власні шляхи (/sign-in/email, /get-session, ...), а бекендний AuthGuard
  * перевіряє видані тут JWT проти JWKS того ж хоста.
  */
 const url = import.meta.env.VITE_NEON_AUTH_URL as string | undefined;
@@ -18,6 +21,25 @@ if (!url) {
   );
 }
 
-export const authClient = createAuthClient(url, {
+// Дженерик задаємо явно: без нього виводиться vanilla-адаптер, у якого
+// useSession — це стор-атом, а не хук, і типи розсипаються.
+const neonAuth = createInternalNeonAuth<BetterAuthReactAdapterInstance>(url, {
   adapter: BetterAuthReactAdapter(),
 });
+
+/** Better Auth-клієнт: signIn/signUp/useSession/signOut. */
+export const authClient = neonAuth.adapter;
+
+/**
+ * JWT для нашого API.
+ *
+ * Свідомо через SDK, а НЕ через authClient.token(): ендпоінт /token
+ * автентифікується сесійною кукою, а вона для нас третьосторонняя
+ * (застосунок на localhost:5173, Neon Auth — на *.neonauth.…aws.neon.tech),
+ * тож браузер її не віддає і /token стабільно повертає 401.
+ *
+ * SDK натомість бере JWT із заголовка set-auth-jwt, який Neon Auth віддає
+ * на відповідях сесії і явно відкриває через access-control-expose-headers.
+ * Тому цей шлях працює крос-доменно, а /token — ні.
+ */
+export const getJWTToken = () => neonAuth.getJWTToken();

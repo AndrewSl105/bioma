@@ -9,7 +9,7 @@ import { useAuth } from './auth';
  *
  * Свідомо useQuery, а не useEffect + fetch: react-query сам дедуплікує виклик
  * (StrictMode у dev монтує ефекти двічі), тримає результат у кеші на весь
- * сеанс і ретраїть мережеві збої. Сам ендпоінт ідемпотентний (upsert).
+ * сеанс і ретраїть збої. Сам ендпоінт ідемпотентний (upsert).
  */
 export function useEnsureProfile() {
   const { user } = useAuth();
@@ -20,5 +20,12 @@ export function useEnsureProfile() {
     enabled: !!user,
     staleTime: Infinity,
     gcTime: Infinity,
+    // Перекриваємо глобальне правило «401 не ретраїмо». Для решти запитів воно
+    // правильне (потрібен перелогін), але тут 401 буває транзієнтним: токен
+    // з'являється трохи пізніше за user із useSession. Без ретраю одна рання
+    // 401 у парі зі staleTime: Infinity вбивала створення профілю до кінця
+    // сеансу — профіль не з'являвся вже ніколи.
+    retry: 5,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 15_000),
   });
 }

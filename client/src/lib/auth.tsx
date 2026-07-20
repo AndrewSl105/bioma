@@ -1,12 +1,12 @@
 import { createContext, useCallback, useContext, ReactNode } from 'react';
-import { authClient } from './authClient';
+import { authClient, getJWTToken } from './authClient';
 
 /**
  * Тонкий адаптер над Neon Auth (Better Auth), щоб решта застосунку
  * не залежала від конкретного SDK.
  *
- * Бекенд перевіряє JWT проти JWKS, тому в Authorization йде саме токен
- * з authClient.token() — не сесійна кука.
+ * Бекенд перевіряє JWT проти JWKS, тому в Authorization йде саме JWT
+ * із getJWTToken() — не сесійна кука і не сесійний токен Better Auth.
  */
 export interface AuthUser {
   id: string;
@@ -53,12 +53,11 @@ export function clearTokenCache() {
 export async function getToken(): Promise<string | null> {
   if (cached && Date.now() < cached.expMs - SKEW_MS) return cached.token;
 
-  // SDK може кинути AuthApiError (напр., /token → 401, коли браузер не
-  // віддав сесійну cookie) — для нас це просто «токена немає», а не краш.
+  // SDK може кинути AuthApiError (напр., сесії ще немає) — для нас це
+  // просто «токена немає», а не краш.
   let token: string | null = null;
   try {
-    const res = await authClient.token();
-    token = res.data?.token ?? null;
+    token = await getJWTToken();
   } catch {
     token = null;
   }
