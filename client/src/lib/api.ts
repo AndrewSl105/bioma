@@ -80,6 +80,36 @@ export const api = {
     fd.append('file', file);
     return request<AiExtractResult>('/ai/extract', { method: 'POST', body: fd });
   },
+  // ── адмінка ──
+  adminBiomarkers: () => request<AdminBiomarker[]>('/biomarkers/admin'),
+  createBiomarker: (body: BiomarkerInput) =>
+    request<Biomarker>('/biomarkers', { method: 'POST', body: JSON.stringify(body) }),
+  updateBiomarker: (slug: string, body: BiomarkerInput) =>
+    request<Biomarker>(`/biomarkers/${encodeURIComponent(slug)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  /** Контент показника мовою інтерфейсу (для сторінки показника). */
+  biomarkerContent: (slug: string) =>
+    request<BiomarkerContent | null>(`/biomarkers/${encodeURIComponent(slug)}/content`),
+  /** Усі локалі контенту — для форми редагування. */
+  allBiomarkerContent: (slug: string) =>
+    request<BiomarkerContent[]>(`/biomarkers/${encodeURIComponent(slug)}/content/all`),
+  saveBiomarkerContent: (slug: string, locale: string, body: BiomarkerContentInput) =>
+    request<BiomarkerContent>(
+      `/biomarkers/${encodeURIComponent(slug)}/content/${encodeURIComponent(locale)}`,
+      { method: 'PUT', body: JSON.stringify(body) },
+    ),
+
+  categories: () => request<Category[]>('/categories'),
+  createCategory: (body: CategoryInput) =>
+    request<Category>('/categories', { method: 'POST', body: JSON.stringify(body) }),
+  updateCategory: (id: string, body: CategoryInput) =>
+    request<Category>(`/categories/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  reorderCategories: (ids: string[]) =>
+    request('/categories/reorder', { method: 'PATCH', body: JSON.stringify({ ids }) }),
+  deleteCategory: (id: string) => request(`/categories/${id}`, { method: 'DELETE' }),
+
   aiCommit: (body: AiCommitBody) =>
     request<{ panelId: string; created: number }>('/ai/commit', {
       method: 'POST',
@@ -153,3 +183,89 @@ export interface AiCommitBody {
   documentId?: string; labName?: string; takenAt: string;
   items: { biomarkerSlug: string; value: number; unit: string; rawText?: string }[];
 }
+
+// ── адмінські типи ──
+export interface LocalizedName { locale: string; name: string; shortName?: string | null }
+
+/** Категорія в адмінці: з порядком, активністю й усіма перекладами. */
+export interface Category extends BiomarkerCategory {
+  /** Канон із БД. name вище — уже локалізоване, у формі потрібні обидва. */
+  canonicalName?: string;
+  sortOrder: number;
+  isActive: boolean;
+  biomarkerCount: number;
+  translations?: { locale: string; name: string }[];
+}
+export interface CategoryInput {
+  name?: string;
+  slug?: string;
+  imageKey?: string | null;
+  sortOrder?: number;
+  isActive?: boolean;
+  translations?: { locale: string; name: string }[];
+}
+
+export interface ReferenceRangeInput {
+  low?: number;
+  high?: number;
+  optimalLow?: number;
+  optimalHigh?: number;
+  sex?: Sex;
+  ageMinYears?: number;
+  ageMaxYears?: number;
+  source?: string;
+}
+
+/**
+ * Маркер у списку адмінки. canonicalName віддається окремо від name:
+ * name локалізоване, а у формі потрібен і англійський оригінал.
+ */
+export interface AdminBiomarker extends Biomarker {
+  canonicalName: string;
+  canonicalShort: string | null;
+  isActive: boolean;
+  precision: number;
+  loincCode: string | null;
+  translations: LocalizedName[];
+  referenceRanges: (ReferenceRangeInput & { id: string; unit: string })[];
+  contentLocales: string[];
+}
+
+export interface BiomarkerInput {
+  name?: string;
+  shortName?: string | null;
+  unit?: string;
+  categoryId?: string | null;
+  precision?: number;
+  loincCode?: string | null;
+  isActive?: boolean;
+  translations?: LocalizedName[];
+  referenceRanges?: ReferenceRangeInput[];
+}
+
+export interface MedicalSource { title: string; url: string }
+
+/** Довідковий контент. Усі поля опційні — наповнюється поступово. */
+export interface BiomarkerContent {
+  locale: string;
+  overview: string | null;
+  whatItMeasures: string | null;
+  roleInBody: string | null;
+  relatedSystems: string[];
+  functionalLinks: string | null;
+  lowMeaning: string | null;
+  highMeaning: string | null;
+  influencingFactors: string[];
+  preparation: string | null;
+  commonlyEvaluatedWith: string[];
+  confirmatoryTests: string[];
+  foodSources: string[];
+  supplementsInfo: string | null;
+  drugClassesInfo: string | null;
+  medicalSources: MedicalSource[];
+  lastReviewedAt: string | null;
+  reviewedBy: string | null;
+}
+export type BiomarkerContentInput = Partial<Omit<BiomarkerContent, 'locale' | 'lastReviewedAt'>> & {
+  lastReviewedAt?: string;
+};

@@ -38,7 +38,9 @@ export class CategoriesService {
       isActive: c.isActive,
       biomarkerCount: c._count.biomarkers,
       // Адмінці потрібні всі мови одразу — інакше форму редагування
-      // довелося б наповнювати окремим запитом на кожну категорію.
+      // довелося б наповнювати окремим запитом на кожну категорію. Канон
+      // теж окремо: у полі name лежить уже локалізована назва.
+      canonicalName: includeInactive ? c.name : undefined,
       translations: includeInactive
         ? c.translations.map((t) => ({ locale: t.locale, name: t.name }))
         : undefined,
