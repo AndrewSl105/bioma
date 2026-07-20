@@ -115,3 +115,23 @@ export function FunctionalIcon({ name, size = 14 }: { name: FunctionalTagKey; si
   const Icon = FUNCTIONAL_ICONS[name];
   return <Icon size={size} aria-hidden className="shrink-0" />;
 }
+
+/**
+ * Класи препаратів. Дзеркалить server/src/biomarkers/taxonomy.ts — таке саме
+ * свідоме дублювання, як і решта таксономії: спільний пакет коштував би
+ * дорожче за короткий масив, а розходження ловить валідація DTO.
+ */
+export const DRUG_CLASS_KEYS = [
+  'ppi',
+  'h2_blocker',
+  'metformin',
+  'glucocorticoid',
+  'statin',
+  'thyroid_hormone',
+  'antithyroid',
+  'biotin',
+  'ocp',
+  'opioid',
+] as const;
+
+export type DrugClassKey = (typeof DRUG_CLASS_KEYS)[number];

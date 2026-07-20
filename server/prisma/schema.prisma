@@ -44,6 +44,14 @@ enum ResultFlag {
 /// Зріст сюди свідомо НЕ входить — він майже сталий у дорослого і живе на
 /// UserProfile.heightCm. ІМТ теж не входить: він похідний (вага + зріст) і
 /// обчислюється на читанні, щоб не було двох джерел правди.
+/// Що саме приймає людина. Ліки й добавки розділені, бо це різні за характером
+/// речі: добавку людина обирає сама, ліки зазвичай призначені — і формулювання
+/// в інтерфейсі мають це враховувати.
+enum IntakeType {
+  MEDICATION
+  SUPPLEMENT
+}
+
 enum BodyMetricKind {
   WEIGHT
   WAIST
@@ -74,6 +82,7 @@ model UserProfile {
   updatedAt DateTime  @updatedAt
 
   bodyMetrics   BodyMetric[]
+  intakes       UserIntake[]
   results       LabResult[]
   panels        LabPanel[]
   documents     Document[]
@@ -237,6 +246,12 @@ model BiomarkerContent {
   lowMeaning  String? // що може означати низьке значення
   highMeaning String? // що може означати високе значення
 
+  /// Класи препаратів, від яких показник може залежати — мовно-незалежні
+  /// ключі (DRUG_CLASS_KEYS). Саме за ними прив'язується прийом користувача:
+  /// шукати клас у прозі drugClassesInfo означало б ставити прив'язку в
+  /// залежність від формулювання, і переклад її ламав би.
+  affectedByDrugClasses String[]
+
   influencingFactors String? // фактори впливу на результат
   preparation        String? // підготовка до здавання
 
@@ -346,6 +361,41 @@ model LabResult {
   updatedAt DateTime @updatedAt
 
   @@index([userId, biomarkerId, measuredAt])
+}
+
+/// Ліки й добавки, які приймає користувач.
+///
+/// ЧУТЛИВІ персональні дані: доступ лише власнику, нікуди не показуємо
+/// публічно і в адмінці не редагуємо — адміністратор веде каталог, а не
+/// призначення конкретної людини.
+///
+/// Ми НЕ інтерпретуємо дози й нічого не радимо: dosageText — вільний текст,
+/// який ми лише зберігаємо і показуємо назад. Єдине, що робить застосунок —
+/// освітньо зазначає, що показник може залежати від класу препарату.
+model UserIntake {
+  id     String      @id @default(cuid())
+  userId String
+  user   UserProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  type IntakeType
+  /// Вільний текст мовою користувача — назва на упаковці, а не з довідника.
+  name String
+
+  /// Ключ класу з таксономії (DRUG_CLASS_KEYS). Опційний: людина може
+  /// записати щось, чого в таксономії немає, і це не привід не дати їй
+  /// зберегти запис — просто не буде автоматичної прив'язки до показників.
+  drugClassKey String?
+
+  dosageText String?
+  startDate  DateTime?
+  /// null означає «приймає зараз» — саме за цим визначається активність.
+  endDate    DateTime?
+  note       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 /// Одне виміряне значення тілесної метрики.

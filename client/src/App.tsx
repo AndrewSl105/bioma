@@ -13,6 +13,7 @@ import { BiomarkerPage } from './pages/BiomarkerPage';
 import { PanelsPage } from './pages/PanelsPage';
 import { PanelPage } from './pages/PanelPage';
 import { BodyPage } from './pages/BodyPage';
+import { IntakesPage } from './pages/IntakesPage';
 import { LoginPage } from './pages/LoginPage';
 import { AdminLayout } from './pages/admin/AdminLayout';
 import { RequireAdmin } from './pages/admin/RequireAdmin';
@@ -146,6 +147,7 @@ function AppShell() {
           <NavTab to="/" label={t('nav.dashboard')} />
           <NavTab to="/panels" label={t('nav.panels')} />
           <NavTab to="/body" label={t('nav.body')} />
+          <NavTab to="/intakes" label={t('nav.intakes')} />
         </nav>
 
         {/* Стан мережі: без нього offline виглядав би як «застосунок завис»
@@ -167,6 +169,7 @@ function AppShell() {
           <Route path="/panels" element={<PanelsPage />} />
           <Route path="/panels/:id" element={<PanelPage />} />
           <Route path="/body" element={<BodyPage />} />
+          <Route path="/intakes" element={<IntakesPage />} />
         </Routes>
       </main>
     </div>

@@ -1,4 +1,5 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { isIntakeActive } from '../intakes/intakes.service';
 import { Prisma, Sex } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Locale } from '../i18n/locale';
@@ -135,11 +136,38 @@ export class BiomarkersService {
       include: { content: true },
     });
     if (!biomarker) throw new NotFoundException('Біомаркер не знайдено');
-    return (
+    const content =
       pickContent(biomarker.content, locale) ??
       pickContent(biomarker.content, CANONICAL_LOCALE) ??
-      null
-    );
+      null;
+    if (!content) return null;
+
+    // Прийоми користувача, клас яких згаданий у affectedByDrugClasses цього
+    // показника. Співставлення за КЛЮЧАМИ, а не за прозою drugClassesInfo:
+    // шукати клас регулярками в тексті означало б ставити плашку в залежність
+    // від формулювання, і переклад її ламав би.
+    const classes = content.affectedByDrugClasses ?? [];
+    const matchedIntakes = classes.length
+      ? (
+          await this.prisma.userIntake.findMany({
+            where: { userId, drugClassKey: { in: classes } },
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              drugClassKey: true,
+              startDate: true,
+              endDate: true,
+            },
+          })
+        )
+          // Лише те, що людина приймає ЗАРАЗ: плашка про давно скасований
+          // препарат була б не контекстом, а шумом.
+          .filter(isIntakeActive)
+          .map(({ id, name, type, drugClassKey }) => ({ id, name, type, drugClassKey }))
+      : [];
+
+    return { ...content, matchedIntakes };
   }
 
   /** Усі локалі контенту — для форми редагування в адмінці. */
@@ -371,6 +399,7 @@ type ContentRow = {
   functionalLinks: string | null;
   relatedSystemKeys: string[];
   functionalTagKeys: string[];
+  affectedByDrugClasses: string[];
   lowMeaning: string | null;
   highMeaning: string | null;
   influencingFactors: string | null;
@@ -408,6 +437,7 @@ function toContentDto(c: ContentRow) {
     functionalLinks: c.functionalLinks,
     relatedSystemKeys: c.relatedSystemKeys,
     functionalTagKeys: c.functionalTagKeys,
+    affectedByDrugClasses: c.affectedByDrugClasses,
     lowMeaning: c.lowMeaning,
     highMeaning: c.highMeaning,
     influencingFactors: c.influencingFactors,

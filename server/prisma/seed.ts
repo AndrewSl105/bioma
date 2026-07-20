@@ -198,6 +198,7 @@ async function seedContent() {
   const toRow = (c: BiomarkerInfoContent, slug: string) => ({
     relatedSystemKeys: CONTENT_TAXONOMY[slug]?.systems ?? [],
     functionalTagKeys: CONTENT_TAXONOMY[slug]?.functional ?? [],
+    affectedByDrugClasses: CONTENT_TAXONOMY[slug]?.drugClasses ?? [],
     overview: c.overview ?? null,
     whatItMeasures: c.whatItMeasures ?? null,
     roleInBody: c.roleInBody ?? null,

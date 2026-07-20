@@ -12,7 +12,7 @@ import {
   TrendingUp,
   Utensils,
 } from 'lucide-react';
-import { api, type BiomarkerContent } from '@/lib/api';
+import { api, type MatchedIntake, type BiomarkerContent } from '@/lib/api';
 import { Card } from '@/components/ui/primitives';
 import { fmtDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -85,6 +85,8 @@ export function BiomarkerContentSections({ slug }: { slug: string }) {
         <Info size={15} className="mt-0.5 shrink-0" aria-hidden />
         <span>{t('content.disclaimer')}</span>
       </p>
+
+      <IntakeNotice matched={content?.matchedIntakes ?? []} />
 
       {/* ── Рівень 1: головне ── */}
       {c.overview?.trim() && (
@@ -442,4 +444,34 @@ function isEmpty(c: BiomarkerContent): boolean {
     c.confirmatoryTests.length ||
     c.medicalSources.length;
   return !text && !lists;
+}
+
+/**
+ * Освітня плашка: людина приймає щось із класу, від якого цей показник може
+ * залежати.
+ *
+ * Формулювання навмисно описове й БЕЗ порад: ми не пишемо ні дозувань, ні
+ * «припиніть/почніть». Єдина дія, яку плашка пропонує, — обговорити з лікарем.
+ * Це фіксація факту, який людина сама ж і внесла, поруч із її показником.
+ *
+ * Не показуємо нічого, якщо збігів немає: плашка «на вас ніщо не впливає» —
+ * шум, а не інформація.
+ */
+function IntakeNotice({ matched }: { matched: MatchedIntake[] }) {
+  const { t } = useTranslation();
+  if (!matched.length) return null;
+
+  const names = matched.map((m) => m.name).join(', ');
+  return (
+    <div className="flex gap-2 rounded-2xl bg-caution-soft p-4 text-xs leading-relaxed text-caution">
+      <Pill size={15} className="mt-0.5 shrink-0" aria-hidden />
+      <div className="space-y-1">
+        <p className="font-medium">{t('intakes.noticeTitle', { names })}</p>
+        {/* Пояснення, ЧОМУ клас впливає, уже є нижче окремою секцією
+            «Класи препаратів, що можуть впливати» — дублювати його тут
+            означало б двічі показати той самий абзац на одному екрані. */}
+        <p>{t('intakes.noticeDiscuss')}</p>
+      </div>
+    </div>
+  );
 }

@@ -75,6 +75,12 @@ export const api = {
   addResult: (body: AddResultBody) =>
     request('/results', { method: 'POST', body: JSON.stringify(body) }),
   deleteResult: (id: string) => request(`/results/${id}`, { method: 'DELETE' }),
+  intakes: () => request<Intake[]>('/intakes'),
+  addIntake: (body: IntakeInput) =>
+    request<Intake>('/intakes', { method: 'POST', body: JSON.stringify(body) }),
+  updateIntake: (id: string, body: Partial<IntakeInput>) =>
+    request<Intake>(`/intakes/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteIntake: (id: string) => request(`/intakes/${id}`, { method: 'DELETE' }),
   body: () => request<BodyOverview>('/body'),
   bodyHistory: (kind: BodyMetricKind) =>
     request<BodyHistory>(`/body/history?kind=${encodeURIComponent(kind)}`),
@@ -218,6 +224,26 @@ export interface History {
 }
 export interface AddResultBody { biomarkerSlug: string; value: number; unit?: string; measuredAt: string; note?: string; }
 
+// ── ліки й добавки ──
+export type IntakeType = 'MEDICATION' | 'SUPPLEMENT';
+export type DrugClassKey =
+  | 'ppi' | 'h2_blocker' | 'metformin' | 'glucocorticoid' | 'statin'
+  | 'thyroid_hormone' | 'antithyroid' | 'biotin' | 'ocp' | 'opioid';
+export interface Intake {
+  id: string; type: IntakeType; name: string; drugClassKey: DrugClassKey | null;
+  dosageText: string | null; startDate: string | null; endDate: string | null; note: string | null;
+  /** Рахує сервер: почався і ще не закінчився. */
+  active?: boolean;
+}
+export interface IntakeInput {
+  type: IntakeType; name: string; drugClassKey?: DrugClassKey | null;
+  dosageText?: string; startDate?: string | null; endDate?: string | null; note?: string;
+}
+/** Прийом, що збігся з affectedByDrugClasses показника — привід для плашки. */
+export interface MatchedIntake {
+  id: string; name: string; type: IntakeType; drugClassKey: DrugClassKey;
+}
+
 // ── тілесні метрики ──
 export type BodyMetricKind = 'WEIGHT' | 'WAIST' | 'RESTING_HR' | 'BP_SYSTOLIC' | 'BP_DIASTOLIC';
 export interface BodyMetricCard {
@@ -353,6 +379,10 @@ export interface MedicalSource { title: string; url?: string }
 
 /** Довідковий контент. Усі поля опційні — наповнюється поступово. */
 export interface BiomarkerContent {
+  /** Класи препаратів, від яких показник може залежати (ключі таксономії). */
+  affectedByDrugClasses?: DrugClassKey[];
+  /** Активні прийоми користувача, що збіглися з цими класами. */
+  matchedIntakes?: MatchedIntake[];
   locale: string;
   overview: string | null;
   whatItMeasures: string | null;

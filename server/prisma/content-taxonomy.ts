@@ -1,4 +1,4 @@
-import type { BodySystemKey, FunctionalTagKey } from '../src/biomarkers/taxonomy';
+import type { BodySystemKey, DrugClassKey, FunctionalTagKey } from '../src/biomarkers/taxonomy';
 
 /**
  * Ключі таксономії для наявного контенту.
@@ -15,13 +15,36 @@ import type { BodySystemKey, FunctionalTagKey } from '../src/biomarkers/taxonomy
 export type ContentTaxonomy = {
   systems?: BodySystemKey[];
   functional?: FunctionalTagKey[];
+  /**
+   * Класи препаратів, від яких показник може залежати.
+   *
+   * Виведені з ТОГО, ЩО ВЖЕ НАПИСАНО в drugClassesInfo та influencingFactors
+   * цього ж маркера, а не додані на здогад: якщо в тексті ТТГ сказано про
+   * замісні гормони, антитиреоїдні, кортикостероїди й біотин — тут стоять
+   * саме вони. Порожньо там, де контент про вплив ліків мовчить.
+   */
+  drugClasses?: DrugClassKey[];
 };
 
 export const CONTENT_TAXONOMY: Record<string, ContentTaxonomy> = {
   // Щитоподібна залоза: вісь гіпоталамус–гіпофіз–щитоподібна.
-  tsh: { systems: ['endocrine'], functional: ['energy', 'metabolism'] },
-  'free-t4': { systems: ['endocrine'], functional: ['energy', 'metabolism'] },
-  'free-t3': { systems: ['endocrine'], functional: ['energy', 'metabolism', 'endurance'] },
+  tsh: {
+    systems: ['endocrine'],
+    functional: ['energy', 'metabolism'],
+    // drugClassesInfo ТТГ: замісні гормони, антитиреоїдні, кортикостероїди;
+    // біотин — з influencingFactors (вплив на методику імуноаналізу).
+    drugClasses: ['thyroid_hormone', 'antithyroid', 'glucocorticoid', 'biotin'],
+  },
+  'free-t4': {
+    systems: ['endocrine'],
+    functional: ['energy', 'metabolism'],
+    drugClasses: ['thyroid_hormone', 'antithyroid', 'biotin'],
+  },
+  'free-t3': {
+    systems: ['endocrine'],
+    functional: ['energy', 'metabolism', 'endurance'],
+    drugClasses: ['thyroid_hormone', 'antithyroid', 'biotin'],
+  },
 
   // Антитіла — аутоімунна складова поверх ендокринної.
   'anti-tpo': { systems: ['immune', 'endocrine'], functional: ['immunity', 'metabolism'] },
@@ -32,10 +55,17 @@ export const CONTENT_TAXONOMY: Record<string, ContentTaxonomy> = {
   },
 
   // Вітаміни.
-  'vitamin-d': { systems: ['skeletal', 'endocrine', 'immune'], functional: ['bone', 'immunity'] },
+  'vitamin-d': {
+    systems: ['skeletal', 'endocrine', 'immune'],
+    functional: ['bone', 'immunity'],
+    // «Деякі протисудомні, глюкокортикоїди…» — із drugClassesInfo маркера.
+    drugClasses: ['glucocorticoid'],
+  },
   'vitamin-b12': {
     systems: ['hematologic', 'nervous', 'digestive'],
     functional: ['energy', 'endurance', 'cognition'],
+    // «Тривалий метформін і засоби, що знижують кислотність (ІПП, H2)…»
+    drugClasses: ['metformin', 'ppi', 'h2_blocker'],
   },
 
   // Обмін заліза; феритин ще й маркер гострої фази — звідси immune.
