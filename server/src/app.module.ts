@@ -7,6 +7,7 @@ import { AuthGuard } from './auth/auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 import { ProfileModule } from './profile/profile.module';
 import { BiomarkersModule } from './biomarkers/biomarkers.module';
+import { CategoriesModule } from './categories/categories.module';
 import { ResultsModule } from './results/results.module';
 import { AiModule } from './ai/ai.module';
 
@@ -17,6 +18,7 @@ import { AiModule } from './ai/ai.module';
     AuthModule,
     ProfileModule,
     BiomarkersModule,
+    CategoriesModule,
     ResultsModule,
     AiModule,
   ],

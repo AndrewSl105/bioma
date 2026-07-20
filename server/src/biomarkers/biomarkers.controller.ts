@@ -1,9 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put } from '@nestjs/common';
 import { BiomarkersService } from './biomarkers.service';
 import { CurrentUser, AuthUser } from '../auth/current-user.decorator';
 import { AdminOnly } from '../auth/roles.decorator';
 import { Locale } from '../i18n/locale.decorator';
 import type { Locale as LocaleTag } from '../i18n/locale';
+import { CreateBiomarkerDto, UpdateBiomarkerDto } from './dto/biomarker.dto';
+import { BiomarkerContentDto } from './dto/biomarker-content.dto';
 
 @Controller('biomarkers')
 export class BiomarkersController {
@@ -14,6 +16,16 @@ export class BiomarkersController {
     return this.service.list(user.userId, locale);
   }
 
+  /**
+   * Оголошено ДО ':slug', інакше Nest зіставив би '/admin' з параметром і
+   * шукав би показник зі slug 'admin'.
+   */
+  @Get('admin')
+  @AdminOnly()
+  adminList(@Locale() locale: LocaleTag) {
+    return this.service.adminList(locale);
+  }
+
   @Get(':slug')
   findOne(
     @CurrentUser() user: AuthUser,
@@ -21,6 +33,34 @@ export class BiomarkersController {
     @Locale() locale: LocaleTag,
   ) {
     return this.service.findBySlug(user.userId, slug, locale);
+  }
+
+  /** Довідковий контент показника мовою запиту. */
+  @Get(':slug/content')
+  content(
+    @CurrentUser() user: AuthUser,
+    @Param('slug') slug: string,
+    @Locale() locale: LocaleTag,
+  ) {
+    return this.service.findContent(user.userId, slug, locale);
+  }
+
+  /** Усі локалі контенту — для форми редагування. */
+  @Get(':slug/content/all')
+  @AdminOnly()
+  allContent(@Param('slug') slug: string) {
+    return this.service.listContent(slug);
+  }
+
+  @Put(':slug/content/:locale')
+  @AdminOnly()
+  saveContent(
+    @CurrentUser() user: AuthUser,
+    @Param('slug') slug: string,
+    @Param('locale') locale: string,
+    @Body() dto: BiomarkerContentDto,
+  ) {
+    return this.service.upsertContent(slug, locale, dto, user.userId);
   }
 
   /** Додати показник із каталогу на свій дашборд. */
@@ -41,7 +81,21 @@ export class BiomarkersController {
    */
   @Post()
   @AdminOnly()
-  create(@CurrentUser() user: AuthUser, @Locale() locale: LocaleTag, @Body() body: any) {
-    return this.service.createSystem(user.userId, locale, body);
+  create(
+    @CurrentUser() user: AuthUser,
+    @Locale() locale: LocaleTag,
+    @Body() dto: CreateBiomarkerDto,
+  ) {
+    return this.service.createSystem(user.userId, locale, dto);
+  }
+
+  @Patch(':slug')
+  @AdminOnly()
+  update(
+    @Param('slug') slug: string,
+    @Body() dto: UpdateBiomarkerDto,
+    @Locale() locale: LocaleTag,
+  ) {
+    return this.service.update(slug, dto, locale);
   }
 }

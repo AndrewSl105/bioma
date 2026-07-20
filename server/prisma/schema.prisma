@@ -147,6 +147,7 @@ model Biomarker {
   translations    BiomarkerTranslation[]
   results         LabResult[]
   selectedBy      UserBiomarker[]
+  content         BiomarkerContent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -175,6 +176,60 @@ model UserBiomarker {
 
   @@id([userId, biomarkerId])
   @@index([userId])
+  @@index([biomarkerId])
+}
+
+/// Довідковий контент про біомаркер — окремий запис на кожну мову.
+///
+/// Окрема модель, а не JSON на Biomarker: поля валідуються DTO, а локалізація
+/// працює тим самим механізмом, що й назви. Усі поля nullable — контент
+/// наповнюється поступово, і напівзаповнений запис має лишатися валідним.
+///
+/// ВАЖЛИВО: це освітня інформація, НЕ медична порада. Формулювання описові
+/// («може бути пов'язано з…»), без наказового способу щодо ліків і доз;
+/// клієнт показує контент лише разом із дисклеймером.
+model BiomarkerContent {
+  id          String    @id @default(cuid())
+  biomarkerId String
+  biomarker   Biomarker @relation(fields: [biomarkerId], references: [id], onDelete: Cascade)
+
+  locale String
+
+  overview       String? // що це за показник
+  whatItMeasures String? // що саме вимірює
+  roleInBody     String? // роль в організмі
+
+  /// Списки зберігаємо як Json (масив рядків): один стовпець замість окремої
+  /// таблиці на кожен перелік, і порядок елементів лишається значущим.
+  relatedSystems  Json? // системи організму
+  functionalLinks String? // зв'язок з енергією, сном, витривалістю тощо
+
+  lowMeaning  String? // що може означати низьке значення
+  highMeaning String? // що може означати високе значення
+
+  influencingFactors Json? // фактори впливу на результат
+  preparation        String? // підготовка до здавання
+
+  /// Slug'и наявних біомаркерів — щоб клієнт рендерив клікабельні посилання.
+  /// Не relation: у переліку допускається й вільний текст для показників,
+  /// яких ще немає в каталозі. Міграція на relation лишається можливою.
+  commonlyEvaluatedWith Json?
+  confirmatoryTests     Json?
+
+  foodSources     Json? // харчові джерела
+  supplementsInfo String? // загальна інформація про добавки
+  drugClassesInfo String? // класи препаратів, що можуть впливати
+
+  /// [{ title, url }] — медичні джерела.
+  medicalSources Json?
+
+  lastReviewedAt DateTime?
+  reviewedBy     String? // userId або ім'я того, хто перевіряв
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([biomarkerId, locale])
   @@index([biomarkerId])
 }
 
