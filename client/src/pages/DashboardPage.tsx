@@ -8,11 +8,12 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useOnline } from '@/lib/useOnline';
 import { offlineHint, formatSyncedAt } from '@/lib/offline';
-import { Badge, Button, Card } from '@/components/ui/primitives';
+import { Button, Card } from '@/components/ui/primitives';
 import { AddResultDialog } from '@/components/AddResultDialog';
 import { AddBiomarkerDialog } from '@/components/AddBiomarkerDialog';
 import { AiUploadDialog } from '@/components/AiUploadDialog';
-import { fmtDate, fmtNum, flagColor } from '@/lib/format';
+import { ZoneBadge } from '@/components/ZoneBadge';
+import { fmtDate, fmtNum } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import type { OverviewCard } from '@/lib/api';
 
@@ -240,7 +241,6 @@ function CardGrid({ items }: { items: OverviewCard[] }) {
         {items.map((c, i) => {
           // Показник щойно обрано зі списку, аналізів по ньому ще немає —
           // картка є, але замість значення запрошуємо внести перше.
-          const fc = c.latest ? flagColor(c.latest.flag) : null;
           return (
             <motion.div
               key={c.biomarker.slug}
@@ -257,11 +257,15 @@ function CardGrid({ items }: { items: OverviewCard[] }) {
                       )}
                       <h3 className="truncate font-medium">{c.biomarker.shortName ?? c.biomarker.name}</h3>
                     </div>
-                    {c.latest && fc && (
-                      <Badge className={`${fc.bg} ${fc.text}`}>
-                        <span className={`h-1.5 w-1.5 rounded-full ${fc.dot}`} />
-                        {t(`flag.${c.latest.flag}`)}
-                      </Badge>
+                    {c.latest && (
+                      // max-w тримає бейдж у межах картки: підписи зон бувають
+                      // довгі («ціль дуже високого ризику») і без обмеження
+                      // виштовхували б назву показника.
+                      <ZoneBadge
+                        zone={c.latest.zone}
+                        flag={c.latest.flag}
+                        className="max-w-[9rem] shrink-0"
+                      />
                     )}
                   </div>
                   {c.latest ? (

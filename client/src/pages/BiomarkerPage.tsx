@@ -7,11 +7,13 @@ import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { useOnline } from '@/lib/useOnline';
 import { offlineHint } from '@/lib/offline';
-import { Badge, Button, Card } from '@/components/ui/primitives';
+import { Button, Card } from '@/components/ui/primitives';
 import { ResultChart } from '@/components/ResultChart';
 import { AddResultDialog } from '@/components/AddResultDialog';
 import { BiomarkerContentSections } from '@/components/BiomarkerContentSections';
+import { ZoneBadge } from '@/components/ZoneBadge';
 import { fmtDate, fmtNum, flagColor } from '@/lib/format';
+import { zoneColor } from '@/lib/zones';
 import { cn } from '@/lib/cn';
 
 export function BiomarkerPage() {
@@ -64,7 +66,6 @@ export function BiomarkerPage() {
   if (isLoading || !data) return <p className="text-sm text-muted">{t('app.loading')}</p>;
 
   const { biomarker, reference, latest, trend, series } = data;
-  const fc = latest ? flagColor(latest.flag) : null;
 
   return (
     <div className="space-y-6">
@@ -134,12 +135,7 @@ export function BiomarkerPage() {
                   </span>
                   <span className="text-sm text-muted">{biomarker.unit}</span>
                 </div>
-                {fc && (
-                  <Badge className={`mt-3 ${fc.bg} ${fc.text}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${fc.dot}`} />
-                    {t(`flag.${latest.flag}`)}
-                  </Badge>
-                )}
+                <ZoneBadge zone={latest.zone} flag={latest.flag} className="mt-3" />
               </>
             ) : (
               <p className="mt-2 text-sm text-muted">{t('biomarker.noValues')}</p>
@@ -221,7 +217,13 @@ export function BiomarkerPage() {
                   {/* flex-wrap + min-w-0: довга нотатка обрізається, а не
                       виштовхує статус із рядка. */}
                   <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
-                    <span className={`${f.text} shrink-0`}>{t(`flag.${p.flag}`)}</span>
+                    {/* У рядку історії — текст, не бейдж: бейджі стовпчиком на
+                        кожному вимірі перетворили б список на кольорову стіну.
+                        Зона підписує точніше за прапорець, тож коли вона є —
+                        показуємо саме її. */}
+                    <span className={`${p.zone ? zoneColor(p.zone.level).text : f.text} shrink-0`}>
+                      {p.zone ? p.zone.label : t(`flag.${p.flag}`)}
+                    </span>
                     {p.source === 'AI_PHOTO' && (
                       <span className="inline-flex shrink-0 items-center gap-1 text-primary">
                         <Sparkles size={11} /> {t('biomarker.fromPhoto')}

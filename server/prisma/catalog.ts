@@ -12,18 +12,14 @@ import { Sex } from '../src/generated/prisma/enums';
  * Референси спрощені — завжди звіряйте з бланком власної лабораторії.
  */
 
-export type BandLevel =
-    | 'DEFICIENT'
-    | 'LOW'
-    | 'BELOW_OPTIMAL'
-    | 'OPTIMAL'
-    | 'NORMAL'
-    | 'ABOVE_OPTIMAL'
-    | 'HIGH'
-    | 'VERY_HIGH'
-    | 'CRITICAL';
+/**
+ * Band/BandLevel визначені в src/biomarkers/bands.ts — там, де їх читає рантайм.
+ * Сід лише постачає дані під цей формат, тож канон типу належить рантайму, а не
+ * сідеру; тут вони переекспортовані, щоб імпорти каталогу лишились короткими.
+ */
+import type { Band, BandLevel } from '../src/biomarkers/bands';
 
-export type Band = { level: BandLevel; label: string; min?: number; max?: number };
+export type { Band, BandLevel };
 
 export type CatalogRange = {
     low?: number;

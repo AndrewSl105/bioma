@@ -13,6 +13,11 @@ export default {
         primary: { DEFAULT: '#0E7C86', soft: '#E1F1F2', ink: '#0A5A62' },
         normal: { DEFAULT: '#12805C', soft: '#E4F5EE' },
         alert: { DEFAULT: '#B45309', soft: '#FBEEDF' },
+        // Зони інтерпретації тонші за бінарне «норма / поза нормою»: між ними
+        // є «трохи не оптимально» (caution) і є «виражене відхилення» (danger).
+        // Без цих двох усі дев'ять рівнів злиплися б у наявні normal/alert.
+        caution: { DEFAULT: '#8A6D1F', soft: '#FAF3DF' },
+        danger: { DEFAULT: '#B42318', soft: '#FDECEA' },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
