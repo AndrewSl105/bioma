@@ -174,7 +174,9 @@ export class ResultsService {
               optimalHigh: range.optimalHigh,
             }
           : null,
-        bands,
+        // Самі смуги дашборду не потрібні — графіка тут немає, а картці досить
+        // обчисленої зони. Возити їх на кожну картку означало б роздувати і
+        // відповідь, і persist-кеш заради даних, які ніхто не читає.
         count: countByBiomarker.get(biomarkerId) ?? 0,
       };
     });

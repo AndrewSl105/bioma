@@ -181,7 +181,6 @@ export interface OverviewCard {
   biomarker: { slug: string; name: string; shortName: string | null; category: BiomarkerCategory | null; unit: string; precision: number };
   latest: { value: number; unit: string; measuredAt: string; flag: Flag; zone: Zone | null } | null;
   reference: { low: number | null; high: number | null; optimalLow: number | null; optimalHigh: number | null } | null;
-  bands: Band[];
   count: number;
 }
 /** Показник із системного каталогу. selected — чи він уже на дашборді. */
