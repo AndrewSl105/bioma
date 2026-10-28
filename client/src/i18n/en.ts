@@ -347,6 +347,9 @@ export const en: Dictionary = {
     verifyBody:
       'We sent a message to {{email}}. Follow the link in it, then come back here and sign in.',
     backToSignIn: 'Back to sign in',
+    demoBadge: 'Demo',
+    demoSubtitle: 'This is a demo with sample lab results. Sign in with the shared demo account below.',
+    demoCredentials: 'Demo account',
   },
   systems: {
     endocrine: 'Endocrine',

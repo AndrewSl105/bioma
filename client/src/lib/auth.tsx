@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, ReactNode } from 'react';
 import { authClient, getJWTToken } from './authClient';
 import { clearPersistedCache } from './persist';
+import { DEMO_MODE, clearDemoSession, getDemoToken, useDemoSession } from './demoAuth';
 
 /**
  * Тонкий адаптер над Neon Auth (Better Auth), щоб решта застосунку
@@ -44,6 +45,8 @@ function readExpMs(jwt: string): number | null {
 /** Скидає кеш токена (напр. після 401 або виходу). */
 export function clearTokenCache() {
   cached = null;
+  // Демо-токен оновити нічим, тож 401 на ньому означає «увійти заново».
+  if (DEMO_MODE) clearDemoSession();
 }
 
 // ── слід входу для offline-старту ──
@@ -80,6 +83,7 @@ export function hasSignedInOnce(): boolean {
  * раніше за ефект батька, тож перші запити React Query летіли без токена.
  */
 export async function getToken(): Promise<string | null> {
+  if (DEMO_MODE) return getDemoToken();
   if (cached && Date.now() < cached.expMs - SKEW_MS) return cached.token;
 
   // SDK може кинути AuthApiError (напр., сесії ще немає) — для нас це
@@ -100,7 +104,7 @@ export async function getToken(): Promise<string | null> {
   return token;
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+function NeonAuthProvider({ children }: { children: ReactNode }) {
   const { data, isPending } = authClient.useSession();
 
   const sessionUser = data?.user;
@@ -140,6 +144,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
+
+/** Демо-сесія живе локально, тож «завантаження» сесії тут не буває. */
+function DemoAuthProvider({ children }: { children: ReactNode }) {
+  const session = useDemoSession();
+  const user = session?.user ?? null;
+
+  useEffect(() => {
+    if (user) markSignedInOnce();
+  }, [user]);
+
+  const signOut = useCallback(async () => {
+    clearTokenCache();
+    clearPersistedCache();
+    forgetSignedIn();
+  }, []);
+
+  const value: AuthCtx = { user, loading: false, getToken, signOut };
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
+export const AuthProvider = DEMO_MODE ? DemoAuthProvider : NeonAuthProvider;
 
 export function useAuth(): AuthCtx {
   const ctx = useContext(Ctx);
