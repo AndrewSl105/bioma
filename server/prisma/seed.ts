@@ -1,6 +1,13 @@
 import 'dotenv/config'; // tsx не вантажить .env сам
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, Sex, ResultFlag, ResultSource } from '../src/generated/prisma/client';
+import {
+  PrismaClient,
+  Sex,
+  ResultFlag,
+  ResultSource,
+  BodyMetricKind,
+  IntakeType,
+} from '../src/generated/prisma/client';
 import { CATALOG, CatalogRange } from './catalog';
 import { PATIENT_PANELS, PATIENT_PROFILE } from './patient-data';
 import { CATALOG_CONTENT, type BiomarkerInfoContent } from './catalog-content';
@@ -333,6 +340,79 @@ async function seedPatient() {
   return { userId, panelsCreated, resultsCreated, panelsSkipped, selected: measured.length };
 }
 
+/**
+ * Публічне демо: щоб вкладки «Тіло», «Ліки» й «Самопочуття» не стояли
+ * порожніми, доливаємо трохи вигаданих даних. Лише за SEED_DEMO_EXTRAS=true —
+ * у реальний акаунт це потрапляти не повинно.
+ *
+ * Ідемпотентно по-таблично: якщо в користувача вже є хоч один запис певного
+ * типу, цей тип не чіпаємо (і не дублюємо, і не затираємо зроблене руками).
+ */
+async function seedDemoExtras(userId: string) {
+  const DAY = 86_400_000;
+  const today = new Date(new Date().toISOString().slice(0, 10));
+  // Детерміновані «коливання» замість Math.random: однаковий сід — однакове демо.
+  const wave = (i: number, amp: number) => Math.round(Math.sin(i * 1.7) * amp * 10) / 10;
+  const done: string[] = [];
+
+  // Зріст — щоб на «Тілі» рахувався ІМТ.
+  await prisma.userProfile.update({ where: { userId }, data: { heightCm: 180 } });
+
+  if (!(await prisma.bodyMetric.count({ where: { userId } }))) {
+    const rows: { userId: string; kind: BodyMetricKind; value: number; measuredAt: Date }[] = [];
+    for (let m = 7; m >= 0; m--) {
+      const measuredAt = new Date(today.getTime() - m * 30 * DAY);
+      const i = 7 - m;
+      rows.push(
+        { userId, kind: BodyMetricKind.WEIGHT, value: 82.4 - i * 0.45 + wave(i, 0.3), measuredAt },
+        { userId, kind: BodyMetricKind.WAIST, value: 91 - i * 0.4 + wave(i, 0.4), measuredAt },
+        { userId, kind: BodyMetricKind.RESTING_HR, value: Math.round(68 - i * 0.6 + wave(i, 2)), measuredAt },
+        { userId, kind: BodyMetricKind.BP_SYSTOLIC, value: Math.round(126 - i + wave(i, 3)), measuredAt },
+        { userId, kind: BodyMetricKind.BP_DIASTOLIC, value: Math.round(82 - i * 0.5 + wave(i, 2)), measuredAt },
+      );
+    }
+    await prisma.bodyMetric.createMany({ data: rows });
+    done.push(`${rows.length} тілесних вимірів`);
+  }
+
+  if (!(await prisma.wellbeingLog.count({ where: { userId } }))) {
+    const clamp = (v: number) => Math.min(5, Math.max(1, Math.round(v)));
+    const rows = Array.from({ length: 28 }, (_, d) => ({
+      userId,
+      date: new Date(today.getTime() - (27 - d) * DAY),
+      energy: clamp(3.4 + wave(d, 1.2)),
+      sleepQuality: clamp(3.6 + wave(d + 2, 1.1)),
+      sleepHours: Math.round((7.1 + wave(d + 1, 0.9)) * 2) / 2,
+      mood: clamp(3.8 + wave(d + 3, 1)),
+      digestion: clamp(4 + wave(d + 5, 0.8)),
+    }));
+    await prisma.wellbeingLog.createMany({ data: rows });
+    done.push(`${rows.length} днів самопочуття`);
+  }
+
+  if (!(await prisma.userIntake.count({ where: { userId } }))) {
+    const daysAgo = (n: number) => new Date(today.getTime() - n * DAY);
+    await prisma.userIntake.createMany({
+      data: [
+        { userId, type: IntakeType.SUPPLEMENT, name: 'Vitamin D3', dosageText: '2000 IU daily', startDate: daysAgo(240) },
+        { userId, type: IntakeType.SUPPLEMENT, name: 'Omega-3', dosageText: '1 g daily', startDate: daysAgo(120) },
+        {
+          userId,
+          type: IntakeType.SUPPLEMENT,
+          name: 'Biotin',
+          drugClassKey: 'biotin',
+          dosageText: '5 mg daily',
+          startDate: daysAgo(400),
+          endDate: daysAgo(300),
+        },
+      ],
+    });
+    done.push('3 записи ліків/добавок');
+  }
+
+  return done;
+}
+
 async function main() {
   const categories = await seedCategories();
   const c = await seedCatalog(categories);
@@ -377,6 +457,11 @@ async function main() {
       `+${p.resultsCreated} результатів на ${PATIENT_PANELS.length} дати${skipped}.\n` +
       `Обрано показників на дашборд: ${p.selected}.`,
   );
+
+  if (process.env.SEED_DEMO_EXTRAS === 'true') {
+    const extras = await seedDemoExtras(p.userId);
+    console.log(`Демо-доповнення: ${extras.length ? extras.join(', ') : 'вже є, пропущено'}.`);
+  }
 }
 
 main()

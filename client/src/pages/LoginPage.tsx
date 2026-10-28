@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 import { authClient } from '@/lib/authClient';
+import { DEMO_MODE, demoSignIn, fetchDemoCredentials } from '@/lib/demoAuth';
 import { Button, Card, Field, Input } from '@/components/ui/primitives';
 
 type Mode = 'signIn' | 'signUp';
@@ -23,7 +24,7 @@ function GoogleMark() {
  * Свідомо на власних примітивах, а не на готовому UI-кіті Neon —
  * той тягне окремий CSS-пресет і конфліктував би з дизайн-системою.
  */
-export function LoginPage() {
+function NeonLoginPage() {
   const { t } = useTranslation();
   const [mode, setMode] = useState<Mode>('signIn');
   const [name, setName] = useState('');
@@ -191,6 +192,92 @@ export function LoginPage() {
     </Shell>
   );
 }
+
+/**
+ * Вхід у демо-режимі: лише email + пароль, без Google і реєстрації.
+ * Облікові дані приходять із сервера і вже стоять у полях — відвідувачу
+ * публічного демо досить натиснути «Увійти».
+ */
+function DemoLoginPage() {
+  const { t } = useTranslation();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [demo, setDemo] = useState<{ email: string; password: string } | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchDemoCredentials()
+      .then((c) => {
+        setDemo(c);
+        setEmail(c.email);
+        setPassword(c.password);
+      })
+      .catch(() => setError(t('login.unavailable')));
+  }, [t]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (pending || !email.trim() || !password) return;
+    setPending(true);
+    setError(null);
+    try {
+      if (!(await demoSignIn(email.trim(), password))) setError(t('login.failed'));
+    } catch {
+      setError(t('login.unavailable'));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Shell>
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-soft px-2.5 py-1 text-xs font-medium text-primary-ink">
+        <Sparkles size={13} />
+        {t('login.demoBadge')}
+      </span>
+      <h1 className="mt-3 font-display text-xl font-bold">{t('login.signInTitle')}</h1>
+      <p className="mt-1 text-sm text-muted">{t('login.demoSubtitle')}</p>
+
+      {demo && (
+        <div className="mt-5 rounded-xl border border-line bg-paper px-3 py-2.5 text-sm">
+          <p className="text-muted">{t('login.demoCredentials')}</p>
+          <p className="mt-1 font-mono text-ink">{demo.email}</p>
+          <p className="font-mono text-ink">{demo.password}</p>
+        </div>
+      )}
+
+      <form onSubmit={submit} className="mt-5 space-y-4">
+        <Field label={t('login.email')}>
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            inputMode="email"
+          />
+        </Field>
+        <Field label={t('login.password')}>
+          <Input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+        </Field>
+
+        {error && <p className="text-sm text-alert">{error}</p>}
+
+        <Button type="submit" className="w-full" disabled={pending || !email.trim() || !password}>
+          {pending && <Loader2 size={16} className="animate-spin" />}
+          {t('login.signIn')}
+        </Button>
+      </form>
+    </Shell>
+  );
+}
+
+export const LoginPage = DEMO_MODE ? DemoLoginPage : NeonLoginPage;
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
