@@ -1,129 +1,135 @@
-# Bioma — трекер аналізів з AI-розпізнаванням фото
+<p align="center">
+  <img src="client/public/logo.svg" alt="Bioma logo" width="72" />
+</p>
 
-Монорепо: перегляд динаміки лабораторних показників, референсні межі,
-графіки та додавання результатів **вручну** або **з фото документа через AI (Claude vision)**.
+<h1 align="center">Bioma</h1>
 
-```
-prom/
-├─ client/   React + TypeScript + Tailwind + Radix + Framer Motion + Recharts
-├─ server/   NestJS + Prisma
-└─ (БД)      Neon Postgres · Auth: Neon Auth (Better Auth)
-```
+<p align="center">
+  <b>All your lab results in one place: clear, over time, and easy to understand.</b>
+</p>
 
-## Можливості
-- **Показники та історія.** Кожен біомаркер (Вітамін D, холестерин, ТТГ…) має історію значень, тренд і графік динаміки з підсвіченою зоною норми.
-- **Референси.** Межі норми залежать від статі/віку; є «оптимальний» діапазон і джерело.
-- **Ручне додавання.** Показник → значення → дата → в історію. Прапорець «в нормі / поза нормою» рахується автоматично.
-- **AI з фото.** Фото бланка → Claude витягує показники → ви звіряєте прев'ю → підтверджені значення падають в історію (`source = AI_PHOTO`).
-- **PROM-модуль.** Каркас під опитувальники самопочуття (напр. PHQ-9) — моделі `PromInstrument` / `PromResponse`.
-
-## Стек
-| Шар | Технології |
-|-----|-----------|
-| Клієнт | React 18, TypeScript, Vite, Tailwind, Radix UI, Framer Motion, Recharts, TanStack Query, React Router |
-| Сервер | NestJS 10, Prisma 5, Anthropic SDK, jose (JWT/JWKS) |
-| БД / Auth | Neon Postgres · Neon Auth (Better Auth) |
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Bioma dashboard with biomarker cards" width="860" />
+</p>
 
 ---
 
-## Швидкий старт
+## What is Bioma?
 
-### 0. Передумови
-- Node 18+, `pnpm` (`npm i -g pnpm`) — або звичайний `npm` у кожній папці.
-- Проєкт Neon з увімкненим **Neon Auth**.
-- Ключ **Anthropic API**.
+Most of us get blood tests a few times a year, from different labs, on paper or
+as PDFs. The results end up scattered across email, photos and drawers. Then a
+doctor asks *"how has your vitamin D changed since last year?"* and nobody knows.
 
-### 1. Змінні оточення
-Скопіюйте `.env.example` → `server/.env` та `client/.env` і заповніть:
+**Bioma is a personal health notebook for your lab results.** You add your
+results by hand, or just snap a photo of the lab report, and Bioma:
 
-**server/.env**
-```
-DATABASE_URL="postgresql://…@…neon.tech/neondb?sslmode=require"
-NEON_AUTH_JWKS_URL="https://ep-xxx.neonauth.<region>.aws.neon.tech/neondb/auth/.well-known/jwks.json"
-ANTHROPIC_API_KEY="sk-ant-…"
-PORT=3001
-CLIENT_ORIGIN="http://localhost:5173"
-```
+- keeps the **full history** of every marker (vitamin D, cholesterol, TSH, ferritin…),
+- shows whether each value is **in range, low or high**, taking your age and sex into account,
+- draws a **trend chart** so you can see where things are heading,
+- lets you **compare two lab visits** side by side.
 
-**client/.env**
-```
-VITE_API_URL=http://localhost:3001
-# Той самий хост, що й NEON_AUTH_JWKS_URL, але без /.well-known/jwks.json
-VITE_NEON_AUTH_URL=https://ep-xxx.neonauth.<region>.aws.neon.tech/neondb/auth
-```
+It's designed to be calm and readable, without medical jargon or alarming red walls.
 
-### 2. Встановлення
-```bash
-pnpm install            # у корені (або npm install у client/ і server/)
-```
-
-### 3. База даних
-```bash
-pnpm --filter server db:migrate   # створює таблиці в Neon
-pnpm --filter server db:seed      # каталог біомаркерів + PHQ-9 + демо-дані пацієнта
-```
-Демо-дані пацієнта прив'язуються **виключно** до реального акаунта Neon Auth:
-`SEED_USER_ID` (user id / `sub`) обов'язковий, без нього сід завершиться помилкою.
-Сід сам створює цього користувача з профілем (стать/дата народження), тож
-заходити в застосунок заздалегідь не потрібно:
-```bash
-cd server && SEED_USER_ID=<реальний-neon-auth-id> npm run db:seed
-```
-Сід ідемпотентний: повторний запуск не дублює панелі (матчинг за номером замовлення).
-> `db:generate` (prisma generate) тягне движок Prisma з мережі — у деяких пісочницях
-> це заблоковано. На вашій машині виконайте `npx prisma generate` у `server/` перед білдом.
-
-### 4. Запуск
-```bash
-pnpm dev                # клієнт :5173 + сервер :3001 паралельно
-```
-Vite проксіює `/api` на сервер. Відкрийте http://localhost:5173.
+> ⚕️ Bioma is for information only and isn't medical advice. Always discuss
+> your results with a doctor.
 
 ---
 
-## Автентифікація (Neon Auth)
-Neon Auth = керований **Better Auth** (не Stack Auth — це попередня реалізація Neon).
+## A quick tour
 
-- `client/src/lib/authClient.ts` — клієнт `@neondatabase/neon-js` на `VITE_NEON_AUTH_URL`.
-- `client/src/lib/auth.tsx` — тонкий адаптер (`useAuth`): сесія з `useSession()`,
-  JWT з `authClient.token()` з кешуванням за `exp`, вихід через `signOut()`.
-- `client/src/pages/LoginPage.tsx` — вхід/реєстрація email + пароль на власних примітивах.
+### Every marker, at a glance
+Your dashboard shows the latest value of every marker you track, with a coloured
+badge: in range, low or high. You can filter to show only what's out of range, or
+group markers by category (blood count, lipids, thyroid…).
 
-JWT надсилається у `Authorization: Bearer …`; на 401 кеш токена скидається і запит
-повторюється один раз.
+### See the trend, not just the number
+Open any marker to see all your past values on one chart. The green band is the
+normal range, so you can tell straight away whether you're heading in or out
+of it. An **About** tab explains in plain language what the marker means and
+what can affect it.
 
-Сервер (`server/src/auth/auth.guard.ts`) перевіряє JWT проти JWKS проєкту (`jose`),
-дістає `sub` як id користувача і синхронізує дзеркало в таблицю `User`.
-Глобальний `APP_GUARD` захищає всі маршрути; для публічних — декоратор `@Public()`.
+<p align="center"><img src="docs/screenshots/biomarker.png" alt="Vitamin D trend chart with the normal range shaded" width="760" /></p>
 
-**Локальна розробка без логіну (лише сервер):** `AUTH_DEV_BYPASS=true` у `server/.env`
-змушує guard пропустити JWKS-перевірку і підставити фіксованого `dev-user` —
-зручно для curl/тестів API. Клієнт завжди працює з реальним Neon Auth.
-У проді має бути вимкнено.
+### Compare two lab visits
+Pick any two lab reports and Bioma lines them up: what went up, what went down,
+and which zone each value is in now.
 
-## AI-розпізнавання
-`server/src/ai/ai.service.ts`:
-1. `POST /api/ai/extract` (multipart, поле `file`) — фото → Claude (`claude-sonnet-5`, tool-use зі строгою JSON-схемою) → структуровані показники + мапінг на каталог (LOINC → назва). Створює `Document`, **не** пишучи в історію.
-2. `POST /api/ai/commit` — підтверджені показники → `LabPanel` + `LabResult` (`source=AI_PHOTO`).
+<p align="center"><img src="docs/screenshots/compare.png" alt="Side-by-side comparison of two lab panels" width="760" /></p>
 
-Двокроковість — навмисна: користувач звіряє розпізнане перед тим, як воно потрапить в історію.
+### Add results from a photo
+Take a picture or upload a PDF of your lab report. AI reads the values and
+matches them to the right markers. **You review everything before it's saved.**
+Nothing goes into your history without your confirmation.
+*(This feature needs an AI key; see "Try it yourself" below.)*
 
-## API (стисло)
+### More than lab tests
+
+| | |
+|---|---|
+| **Body**: weight, waist, blood pressure, resting pulse, plus BMI calculated for you. | <img src="docs/screenshots/body.png" alt="Body metrics page" width="420" /> |
+| **Medications & supplements**: keep a list of what you take and when, so you can see what might affect a marker. You can also just say it out loud, and AI fills in the form for you to check. | <img src="docs/screenshots/meds.png" alt="Medications and supplements list" width="420" /> |
+| **Wellbeing**: a 10-second daily check-in on energy, sleep, mood and digestion, with 30-day trends. | <img src="docs/screenshots/wellbeing.png" alt="Wellbeing daily check-in trends" width="420" /> |
+
+Also included:
+- 🔔 **Retest reminders** for markers you want to check regularly.
+- 🔁 **Unit conversion**: results from labs that use different units still line up on one chart.
+- 🌸 **Cycle tracking** for female profiles, with phases and gentle estimates.
+- 🌐 **Ukrainian and English** interface.
+- 📱 **Works on your phone** and can be installed like an app. Your saved data stays viewable even offline.
+
+<p align="center"><img src="docs/screenshots/mobile.png" alt="Bioma on a phone" width="260" /></p>
+
+---
+
+## Try it yourself (demo)
+
+The easiest way is the built-in **demo mode**. It comes with a sample patient's
+anonymised results from three lab visits, plus a few weeks of wellbeing and
+body data.
+
+<p align="center"><img src="docs/screenshots/login.png" alt="Demo sign-in screen with the demo account shown" width="560" /></p>
+
+**Demo login**
+
+| Email | Password |
+|-------|----------|
+| `demo@bioma.app` | `demo1234` |
+
+The sign-in page also shows these and fills them in for you.
+
+### Run it on your computer
+
+You only need [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+Download this project, open a terminal in its folder and run:
+
+```bash
+docker compose up --build
 ```
-GET    /api/overview                 останнє значення по кожному показнику
-GET    /api/biomarkers               каталог (глобальні + власні)
-GET    /api/results?biomarker=slug   історія + серія для графіка + референс
-POST   /api/results                  додати значення вручну
-DELETE /api/results/:id              видалити значення
-POST   /api/ai/extract               фото → прев'ю показників
-POST   /api/ai/commit                підтвердити → в історію
-```
 
-## Що варто доробити
-- OAuth-провайдери та відновлення пароля в Neon Auth (зараз лише email + пароль).
-- Зберігання фото в об'єктному сховищі (зараз документ не персиститься як файл).
-- Розширення каталогу біомаркерів і синонімів для точнішого AI-мапінгу.
-- Наповнення PROM-модуля (проходження опитувальників, підрахунок балів, графіки).
-- Конвертація одиниць (напр. нг/мл ↔ нмоль/л).
+The first run takes a few minutes. When the log shows `Bioma API → http://localhost:3001/api`, open
+**http://localhost:8080** and sign in with the demo account above.
 
-> ⚕️ Довідково, не медична порада. Референси спрощені — звіряйте з бланком вашої лабораторії.
+- To stop it, press `Ctrl+C`.
+- To reset the demo data, run `docker compose down -v` and then start again.
+- **Optional:** to try the AI features (reading lab reports from photos, adding medications by voice), create a file called
+  `.env` next to `docker-compose.yml` with `ANTHROPIC_API_KEY=your-key` before
+  starting. Everything else works without it.
+
+> The demo account is shared. Don't put real personal health data into a public demo.
+
+---
+
+## Privacy by design
+
+- Your results are visible **only to you**: every request is checked against your account.
+- AI suggestions are always **reviewed by you** before they're saved.
+- Signing out also clears the copy of your data saved on the device.
+- Bioma doesn't give dosing advice or tell you to start or stop anything. That's your doctor's call.
+
+---
+
+## For developers
+
+Bioma is a React + NestJS + PostgreSQL app with AI document recognition.
+Architecture, local setup, environment variables, the API and the full
+demo-mode reference are in **[docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)** (in Ukrainian).

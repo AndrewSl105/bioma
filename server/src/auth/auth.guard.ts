@@ -9,6 +9,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from 'jose';
 import { RoleService, normalizeRole, type UserRole } from './role.service';
+import { DEMO_MODE, DEMO_USER, verifyDemoToken } from './demo';
 
 export const IS_PUBLIC_KEY = 'isPublic';
 export const Public = () => SetMetadata(IS_PUBLIC_KEY, true);
@@ -65,8 +66,8 @@ function requireJwksUrl(): string {
 @Injectable()
 export class AuthGuard implements CanActivate {
   private readonly logger = new Logger(AuthGuard.name);
-  // У dev-bypass режимі JWKS не потрібен (і NEON_AUTH_JWKS_URL може бути відсутнім).
-  private jwks = DEV_BYPASS ? null : createRemoteJWKSet(new URL(requireJwksUrl()));
+  // У dev-bypass і демо-режимі JWKS не потрібен (NEON_AUTH_JWKS_URL може бути відсутнім).
+  private jwks = DEV_BYPASS || DEMO_MODE ? null : createRemoteJWKSet(new URL(requireJwksUrl()));
 
   constructor(
     private reflector: Reflector,
@@ -89,6 +90,19 @@ export class AuthGuard implements CanActivate {
 
     const token = this.extractToken(req);
     if (!token) throw new UnauthorizedException('Немає токена доступу');
+
+    if (DEMO_MODE) {
+      try {
+        await verifyDemoToken(token);
+      } catch (e) {
+        this.logger.warn(`Демо-JWT не пройшов перевірку: ${(e as Error).message}`);
+        throw new UnauthorizedException('Недійсний або протермінований токен');
+      }
+      // Роль не читаємо: таблиці neon_auth у демо-базі немає, а демо-
+      // користувач однаково ніколи не адмін.
+      req.user = { ...DEMO_USER, role: 'user' };
+      return true;
+    }
 
     let payload: JWTPayload;
     try {

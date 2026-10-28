@@ -3,6 +3,7 @@ import {
   BetterAuthReactAdapter,
   type BetterAuthReactAdapterInstance,
 } from '@neondatabase/neon-js/auth/react';
+import { DEMO_MODE } from './demoAuth';
 
 /**
  * Клієнт Neon Auth (керований Better Auth).
@@ -14,7 +15,10 @@ import {
  */
 const url = import.meta.env.VITE_NEON_AUTH_URL as string | undefined;
 
-if (!url) {
+// У демо-режимі Neon Auth не використовується (див. demoAuth.ts), тож і URL
+// не обов'язковий. Клієнт створюється з заглушкою лише щоб імпорти не падали:
+// до мережі він не звертається, поки його ніхто не викликає.
+if (!url && !DEMO_MODE) {
   throw new Error(
     'VITE_NEON_AUTH_URL не задано. Візьміть URL Neon Auth у консолі Neon ' +
       '(вигляд: https://ep-xxx.neonauth.<region>.aws.neon.tech/neondb/auth).',
@@ -23,7 +27,7 @@ if (!url) {
 
 // Дженерик задаємо явно: без нього виводиться vanilla-адаптер, у якого
 // useSession — це стор-атом, а не хук, і типи розсипаються.
-const neonAuth = createInternalNeonAuth<BetterAuthReactAdapterInstance>(url, {
+const neonAuth = createInternalNeonAuth<BetterAuthReactAdapterInstance>(url ?? 'http://demo.invalid', {
   adapter: BetterAuthReactAdapter(),
 });
 

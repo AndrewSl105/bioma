@@ -1,0 +1,64 @@
+# Bioma — повний стек одним рухом, у демо-режимі:
+#   docker compose up --build
+# і відкрийте http://localhost:8080 (вхід: demo@bioma.app / demo1234).
+#
+# Neon не потрібен: звичайний Postgres у контейнері, вхід за демо-логіном.
+# Змінні нижче можна перевизначити у файлі .env поруч із цим файлом.
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: bioma
+      POSTGRES_PASSWORD: bioma
+      POSTGRES_DB: bioma
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bioma -d bioma"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  server:
+    build: ./server
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://bioma:bioma@db:5432/bioma
+      PORT: 3001
+      CLIENT_ORIGIN: http://localhost:8080
+      # Демо-режим: власний вхід замість Neon Auth.
+      DEMO_MODE: "true"
+      DEMO_EMAIL: ${DEMO_EMAIL:-demo@bioma.app}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo1234}
+      # Порожньо — випадковий ключ на кожен старт (після рестарту треба увійти ще раз).
+      DEMO_JWT_SECRET: ${DEMO_JWT_SECRET:-}
+      # Наповнення демо-акаунта на старті. SEED_USER_ID має збігатися з DEMO_USER_ID.
+      SEED_ON_START: "true"
+      SEED_USER_ID: demo-user
+      DEMO_USER_ID: demo-user
+      SEED_DEMO_EXTRAS: "true"
+      # Опційно: AI-розпізнавання фото/PDF бланків і ліків голосом.
+      # Без ключів усе інше працює, лише ці кнопки повертатимуть помилку.
+      AI_PROVIDER: ${AI_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./client
+      args:
+        VITE_DEMO_MODE: "true"
+        VITE_API_URL: ""
+    depends_on:
+      - server
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    restart: unless-stopped
+
+volumes:
+  db-data:
